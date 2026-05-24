@@ -1,0 +1,111 @@
+{
+  "name": "antigravity-control-center",
+  "displayName": "Antigravity Control Center",
+  "description": "Control Center for Antigravity providing access to Conversation History, Agents, MCPs, Skills and more..",
+  "version": "0.1.0",
+  "publisher": "tenn-ai",
+  "icon": "media/icons/acc_logo.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tenn-ai/antigravity-control-center.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "*"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "icons": {
+      "acc-logo": {
+        "description": "Antigravity Control Center Logo",
+        "default": {
+          "iconPath": "./media/icons/acc_logo_statusbar.svg"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "controlCenter.open",
+        "title": "Control Center",
+        "icon": "$(dashboard)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "controlCenter.open",
+          "group": "navigation",
+          "when": "true"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "controlCenter.open",
+        "key": "ctrl+cmd+c",
+        "mac": "ctrl+cmd+c",
+        "win": "ctrl+alt+c",
+        "linux": "ctrl+alt+c"
+      }
+    ],
+    "configuration": {
+      "title": "Antigravity Control Center",
+      "properties": {
+        "controlCenter.openMode": {
+          "type": "string",
+          "default": "webview",
+          "enum": [
+            "webview",
+            "external"
+          ],
+          "description": "Choose the visualization layer to render the Control Center dashboard. 'webview' launches an integrated, sandboxed editor panel tab inside the IDE (with full retain-on-hide contexts). 'external' initializes a local loopback server binding solely to 127.0.0.1 and fires a standalone browser panel window (ideal for multi-monitor developers)."
+        },
+        "controlCenter.defaultTab": {
+          "type": "string",
+          "default": "conversations",
+          "enum": [
+            "conversations",
+            "mcpServers",
+            "skills",
+            "agents",
+            "rules",
+            "workflows",
+            "knowledge",
+            "settings"
+          ],
+          "description": "Define the module that resolves first on launch. Options: Conversations (transcript logs), McpServers (schema viewer), Skills (expert protocols), Agents (personas), Rules (mandated standards), Workflows (slash commands), Knowledge (curated KIs), or Settings (system guide)."
+        },
+        "controlCenter.dataDirectory": {
+          "type": "string",
+          "default": "",
+          "description": "The directory where Antigravity stores its operational state. This path serves as the root for compiling the 'brain' transcripts in '{dataDirectory}/brain/', resolving FastMCP v2 server directories in '{dataDirectory}/mcp/', and parsing curated Knowledge Items (KIs) in '{dataDirectory}/knowledge/'. If left blank, it defaults to the user's home fallback (~/.gemini/antigravity-ide)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch",
+    "lint": "eslint src --ext .ts",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.19.0",
+    "@typescript-eslint/parser": "^6.19.0",
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.19.11",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  }
+}
