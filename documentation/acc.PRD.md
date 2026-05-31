@@ -1,9 +1,9 @@
 # Antigravity Control Center — Product Requirements Document (PRD)
 
-> **Version:** 1.1.0  
+> **Version:** 1.2.0  
 > **Author:** TENN.ai & @firothehero
-> **Date:** 2026-05-24  
-> **Status:** Approved — Custom Launch & Floating Window Implemented  
+> **Date:** 2026-05-30  
+> **Status:** Approved — Native Antigravity Chat Integration Implemented  
 > **Repository:** `antigravity-control-center`
 
 ---
@@ -21,6 +21,7 @@ Currently, managing Antigravity's internal resources (conversations, skills, MCP
 - Inspect, enable/disable, or edit Skills and Rules
 - Monitor agent configurations and activity
 - Manage Workflows and Knowledge Items
+- Monitor **multiple AI conversations simultaneously in real-time** while agents stream responses
 
 ### 1.2 Solution
 
@@ -30,6 +31,7 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 2. **Displays** it in a premium dark-mode UI with search, filter, and drill-down capabilities
 3. **Allows** CRUD operations where safe (create/edit/delete skills, rules, workflows)
 4. **Provides** real-time monitoring of agent sessions and MCP server health
+5. **Embeds** the exact Antigravity chat UI so users can interact with agents across all conversations simultaneously
 
 ---
 
@@ -86,12 +88,16 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 
 | Feature | Priority | Description |
 |---|---|---|
-| **List Conversations** | P0 | Display all conversations in Column 2 of the three-column split layout from `~/.gemini/antigravity-ide/brain/` in reverse chronological order (newest first). Auto-select the top conversation by default. |
+| **List Conversations (Convos)** | P0 | Display all conversations in Column 2 from `~/.gemini/antigravity-ide/brain/` in reverse chronological order (newest first). Conversations are called "Convos" in Antigravity — display them with the same naming. Auto-select the top conversation by default. |
 | **Search & Project Filter** | P0 | Search conversations by title; filter by Project/Repository name utilizing a custom dropdown select in the Column 2 header. |
-| **Premium Chat timeline** | P0 | Render full chat timeline in Column 3 using Antigravity's color-coded message bubbles, custom accordions for tool call details, and JSON blocks. |
-| **Interactive Chat Input** | P0 | Bottom input panel with model selection dropdown (`Gemini 3.5 Flash` or others), microphone icon, and send action to execute interactive agent sessions. |
-| **Real-time Appending** | P0 | Submitting prompts appends messages to `transcript.jsonl` files in real-time, executing agent/MODEL responses and refreshing the UI instantly. |
-| **Conversation Details** | P1 | Show metadata: step count, duration, files modified, tools used |
+| **Native Antigravity Chat Timeline** | P0 | Render full chat timeline in Column 3 using the **exact same** Antigravity color-coded message bubbles, tool call accordions, and code blocks. No independent custom UI — must match Antigravity natively. |
+| **Native Antigravity Input Bar** | P0 | Bottom input panel using the exact Antigravity-style input: rounded textarea, `[+] ModelName ▼` model selector pill, microphone icon, and Send button. Enter sends, Shift+Enter creates newline. |
+| **Native Model Selector** | P0 | Model dropdown shows the **exact same models** as Antigravity's own chat: Gemini 3.5 Flash (M/H/L), Gemini 3.1 Pro (L/H), Claude Sonnet/Opus 4.6 (Thinking), GPT-OSS 120B (Medium). Delivered via `request:modelCatalog` message protocol. |
+| **Real-time Streaming** | P0 | `ConversationWatcher` (fs.watch on `transcript.jsonl`) detects new steps in real-time as the agent writes them. New steps are **appended without full re-render** via `stream:conversationSteps` push message. Streaming indicator bar shows "Agent is responding…" with pulsing dot. |
+| **Parallel Multi-Chat Monitoring** | P0 | User can switch between any open conversation while the watcher continues monitoring all previously-opened chats simultaneously. New steps from any watched conversation update that conversation's chat view in real-time. |
+| **Conversation Renaming** | P0 | Rename button (pencil icon) in conversation header opens a custom modal (no browser popup). Rename is stored in `title_override.txt` in the brain directory without touching Antigravity's internal protobuf store. |
+| **Send Message** | P0 | Input bar submits to `request:sendMessage` which appends a `USER_EXPLICIT / USER_INPUT` step to `transcript.jsonl`. The active Antigravity agent picks this up and responds — visible via real-time watcher. |
+| **Conversation Details** | P1 | Show metadata: step count, user messages count, tool call count, project badge |
 | **Export Conversation** | P1 | Export as Markdown, JSON, or HTML |
 | **Delete Conversation** | P2 | Remove conversation data with confirmation dialog |
 | **Conversation Analytics** | P2 | Charts showing conversation frequency, avg duration, most-used tools |

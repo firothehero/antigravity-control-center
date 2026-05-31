@@ -263,6 +263,43 @@
         els.statusIndicator.className = 'status-indicator error';
         window.showToast({ message: `Error: ${message.payload}`, type: 'error' });
         break;
+
+      // ── Real-time Streaming: new steps from transcript.jsonl watcher ──
+      case 'stream:conversationSteps':
+        if (message.payload && message.payload.id) {
+          window.Modules.Conversations.onStreamUpdate(
+            message.payload.id,
+            message.payload.newSteps || [],
+            message.payload.totalStepCount || 0
+          );
+        }
+        break;
+
+      // ── Model Catalog: full list of Antigravity models ────────────────
+      case 'data:modelCatalog':
+        if (message.payload) {
+          window.Modules.Conversations.onModelCatalogLoaded(
+            message.payload.models,
+            message.payload.defaultModel
+          );
+        }
+        break;
+
+      // ── Rename Success ────────────────────────────────────────────────
+      case 'action:renameSuccess':
+        window.showToast({ message: 'Conversation renamed.', type: 'success' });
+        // Update conversation list if visible
+        if (state.currentModule === 'conversations' && message.payload) {
+          const { id, newTitle } = message.payload;
+          if (state.moduleData.conversations) {
+            const conv = state.moduleData.conversations.find(c => c.id === id);
+            if (conv) {
+              conv.title = newTitle;
+              filterAndRenderSubList('conversations', state.moduleData.conversations);
+            }
+          }
+        }
+        break;
     }
   }
 

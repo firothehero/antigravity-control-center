@@ -1733,3 +1733,489 @@ input[type="text"]:focus, select:focus {
   background: var(--color-primary-hover);
 }
 
+
+/* ---------------------------------------------------- */
+/* 12. Native Antigravity Conversation Header            */
+/* ---------------------------------------------------- */
+
+.acc-conv-header {
+  flex-shrink: 0;
+  padding: 12px 16px 10px;
+  border-bottom: 1px solid var(--color-surface-border);
+  background: var(--color-surface-elevated);
+}
+
+.acc-conv-header-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.acc-conv-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.acc-conv-rename-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.acc-conv-rename-btn:hover {
+  color: var(--color-secondary);
+  background: var(--color-surface-hover);
+}
+
+.acc-conv-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.acc-conv-meta-item {
+  font-size: 11px;
+  color: var(--color-text-muted);
+}
+
+.acc-conv-meta-dot {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+
+/* ---------------------------------------------------- */
+/* 13. Streaming Indicator Bar                           */
+/* ---------------------------------------------------- */
+
+.acc-streaming-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  border-top: 1px solid var(--color-surface-border);
+  background: rgba(124, 77, 255, 0.06);
+  font-size: 11px;
+  color: var(--color-secondary);
+  transition: opacity 0.3s;
+}
+
+.acc-streaming-bar.hidden {
+  display: none;
+}
+
+.acc-streaming-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+  animation: acc-pulse 1.2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+@keyframes acc-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.75); }
+}
+
+.acc-streaming-label {
+  font-style: italic;
+  opacity: 0.9;
+}
+
+
+/* ---------------------------------------------------- */
+/* 14. Antigravity-style Bottom Input Bar                */
+/* ---------------------------------------------------- */
+
+.acc-input-area {
+  flex-shrink: 0;
+  padding: 8px 12px 12px;
+  background: var(--color-surface-elevated);
+  border-top: 1px solid var(--color-surface-border);
+}
+
+.acc-input-wrapper {
+  display: flex;
+  flex-direction: column;
+  background: var(--color-surface);
+  border: 1.5px solid var(--color-surface-border);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color var(--transition-fast);
+}
+
+.acc-input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(77, 148, 255, 0.15);
+}
+
+.acc-textarea {
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 14px 6px;
+  min-height: 40px;
+  max-height: 160px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.acc-textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.acc-input-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 10px 7px;
+  border-top: 1px solid var(--color-surface-border);
+}
+
+/* ── Model Selector Pill ──────────────────────────────────────────────── */
+
+.acc-model-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--color-surface-hover);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  white-space: nowrap;
+  min-width: 0;
+  max-width: 220px;
+  overflow: hidden;
+}
+
+.acc-model-selector:hover,
+.acc-model-selector:focus {
+  background: rgba(124, 77, 255, 0.12);
+  color: var(--color-secondary);
+  border-color: var(--color-secondary);
+  outline: none;
+}
+
+.acc-model-plus {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.acc-model-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acc-model-caret {
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+/* ── Input Action Buttons ─────────────────────────────────────────────── */
+
+.acc-input-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.acc-mic-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 5px;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.acc-mic-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
+}
+
+.acc-send-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-primary);
+  border: none;
+  color: #fff;
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform 0.1s;
+  white-space: nowrap;
+}
+
+.acc-send-btn:hover {
+  background: var(--color-primary-hover);
+}
+
+.acc-send-btn:active {
+  transform: scale(0.97);
+}
+
+.acc-send-btn svg {
+  flex-shrink: 0;
+}
+
+
+/* ---------------------------------------------------- */
+/* 15. Model Dropdown                                    */
+/* ---------------------------------------------------- */
+
+.acc-model-dropdown {
+  position: fixed;
+  background: var(--color-surface-elevated);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  padding: 4px 0;
+  z-index: 9999;
+  min-width: 240px;
+  max-width: 300px;
+  overflow: hidden;
+  animation: dropdownIn 0.12s ease-out;
+}
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.acc-model-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  cursor: pointer;
+  gap: 10px;
+  transition: background var(--transition-fast);
+}
+
+.acc-model-item:hover,
+.acc-model-item.selected {
+  background: var(--color-surface-hover);
+}
+
+.acc-model-item.selected {
+  color: var(--color-secondary);
+}
+
+.acc-model-item-name {
+  font-size: 12.5px;
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.acc-model-item.selected .acc-model-item-name {
+  color: var(--color-secondary);
+  font-weight: 500;
+}
+
+.acc-model-item-badge {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+
+/* ---------------------------------------------------- */
+/* 16. Markdown Rendering in Chat                        */
+/* ---------------------------------------------------- */
+
+.acc-code-block {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e2e8f0;
+  margin: 6px 0;
+}
+
+.acc-code-block code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.acc-inline-code {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--color-secondary);
+}
+
+.acc-md-h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 10px 0 4px;
+}
+
+.acc-md-h4 {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 8px 0 3px;
+}
+
+.acc-md-h5 {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin: 6px 0 2px;
+}
+
+.acc-md-hr {
+  border: none;
+  border-top: 1px solid var(--color-surface-border);
+  margin: 10px 0;
+}
+
+.acc-md-li {
+  margin-left: 16px;
+  line-height: 1.6;
+  list-style: disc;
+  display: list-item;
+}
+
+.acc-md-li-num {
+  list-style: decimal;
+}
+
+
+/* ---------------------------------------------------- */
+/* 17. Chat Message Meta + Enhanced Bubbles              */
+/* ---------------------------------------------------- */
+
+.chat-message-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.chat-message-sender {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.75;
+}
+
+.chat-message.user .chat-message-sender {
+  color: var(--color-primary);
+}
+
+.chat-message.agent .chat-message-sender {
+  color: var(--color-secondary);
+}
+
+.chat-message.system .chat-message-sender {
+  color: var(--color-text-muted);
+}
+
+.chat-message-step {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  opacity: 0.5;
+}
+
+.chat-message-content {
+  font-size: 13px;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.chat-tool-calls {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tool-call-accordion {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--color-surface-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tool-call-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  user-select: none;
+  transition: background var(--transition-fast);
+}
+
+.tool-call-trigger:hover {
+  background: var(--color-surface-hover);
+}
+
+.acc-tool-arrow {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  transition: transform 0.15s;
+}
+
+.tool-call-accordion:not(.collapsed) .acc-tool-arrow {
+  transform: rotate(180deg);
+}

@@ -112,6 +112,10 @@ export type MessageType =
   | 'request:conversations'
   | 'request:conversationDetail'
   | 'request:conversationPage'
+  | 'request:watchConversation'
+  | 'request:unwatchConversation'
+  | 'request:modelCatalog'
+  | 'request:renameConversation'
   | 'request:mcpServers'
   | 'request:mcpToolDetail'
   | 'request:skills'
@@ -129,6 +133,7 @@ export type MessageType =
   | 'data:conversations'
   | 'data:conversationDetail'
   | 'data:conversationPage'
+  | 'data:modelCatalog'
   | 'data:mcpServers'
   | 'data:mcpToolDetail'
   | 'data:skills'
@@ -137,6 +142,9 @@ export type MessageType =
   | 'data:workflows'
   | 'data:knowledge'
   | 'data:settings'
+  | 'stream:conversationSteps'
+  | 'action:renameSuccess'
+  | 'action:saveSettingsSuccess'
   | 'error:conversations'
   | 'error:conversationDetail'
   | 'error:mcpServers'
@@ -145,8 +153,7 @@ export type MessageType =
   | 'error:rules'
   | 'error:workflows'
   | 'error:knowledge'
-  | 'error:settings'
-  | 'action:saveSettingsSuccess';
+  | 'error:settings';
 
 export interface WebviewMessage {
   type: MessageType;

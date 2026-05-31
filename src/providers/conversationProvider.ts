@@ -77,14 +77,23 @@ export async function getConversations(): Promise<Conversation[]> {
     const steps = parseJsonl(transcriptContent);
     const stepCount = steps.length;
     
-    // Extract title from the first USER_INPUT step, or fall back to directory name
+    // Extract title: prefer user-set override, then first USER_INPUT, then UUID
     let title = '';
-    const firstUserInput = steps.find(s => s.type === 'USER_INPUT');
-    if (firstUserInput && firstUserInput.content) {
-      // Clean up markdown/tags if any, and truncate
-      title = firstUserInput.content.replace(/<[^>]*>/g, '').trim();
-      if (title.length > 80) {
-        title = title.substring(0, 80) + '...';
+    const overridePath = path.join(convPath, 'title_override.txt');
+    try {
+      const overrideContent = await fs.readFile(overridePath, 'utf8');
+      if (overrideContent.trim()) {
+        title = overrideContent.trim();
+      }
+    } catch (_) { /* no override exists */ }
+
+    if (!title) {
+      const firstUserInput = steps.find(s => s.type === 'USER_INPUT');
+      if (firstUserInput && firstUserInput.content) {
+        title = firstUserInput.content.replace(/<[^>]*>/g, '').trim();
+        if (title.length > 80) {
+          title = title.substring(0, 80) + '...';
+        }
       }
     }
     
@@ -131,11 +140,21 @@ export async function getConversationDetail(id: string): Promise<ConversationDet
   const stepCount = steps.length;
   
   let title = '';
-  const firstUserInput = steps.find(s => s.type === 'USER_INPUT');
-  if (firstUserInput && firstUserInput.content) {
-    title = firstUserInput.content.replace(/<[^>]*>/g, '').trim();
-    if (title.length > 80) {
-      title = title.substring(0, 80) + '...';
+  const overridePath = path.join(convPath, 'title_override.txt');
+  try {
+    const overrideContent = await fs.readFile(overridePath, 'utf8');
+    if (overrideContent.trim()) {
+      title = overrideContent.trim();
+    }
+  } catch (_) { /* no override */ }
+
+  if (!title) {
+    const firstUserInput = steps.find(s => s.type === 'USER_INPUT');
+    if (firstUserInput && firstUserInput.content) {
+      title = firstUserInput.content.replace(/<[^>]*>/g, '').trim();
+      if (title.length > 80) {
+        title = title.substring(0, 80) + '...';
+      }
     }
   }
   if (!title) {
@@ -224,3 +243,16 @@ export async function addConversationMessage(id: string, source: string, type: s
   return getConversationDetail(id);
 }
 
+/**
+ * Rename a conversation by writing a title override file.
+ *
+ * We deliberately do NOT modify Antigravity's protobuf conversation store.
+ * Instead we store the custom title in `title_override.txt` inside the
+ * brain conversation directory.  The `getConversations` and
+ * `getConversationDetail` functions already check for this file.
+ */
+export async function renameConversation(id: string, newTitle: string): Promise<void> {
+  const brainDir = getBrainDirectory();
+  const overridePath = path.join(brainDir, id, 'title_override.txt');
+  await fs.writeFile(overridePath, newTitle.trim(), 'utf8');
+}

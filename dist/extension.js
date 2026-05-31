@@ -3487,7 +3487,7 @@ var require_parse = __commonJS({
 var require_gray_matter = __commonJS({
   "node_modules/gray-matter/index.js"(exports2, module2) {
     "use strict";
-    var fs3 = require("fs");
+    var fs4 = require("fs");
     var sections = require_section_matter();
     var defaults = require_defaults();
     var stringify = require_stringify();
@@ -3572,7 +3572,7 @@ var require_gray_matter = __commonJS({
       return stringify(file, data, options2);
     };
     matter2.read = function(filepath, options2) {
-      const str2 = fs3.readFileSync(filepath, "utf8");
+      const str2 = fs4.readFileSync(filepath, "utf8");
       const file = matter2(str2, options2);
       file.path = filepath;
       return file;
@@ -3611,6 +3611,7 @@ var vscode4 = __toESM(require("vscode"));
 
 // src/webview/webviewManager.ts
 var vscode3 = __toESM(require("vscode"));
+var path9 = __toESM(require("path"));
 
 // src/webview/getWebviewContent.ts
 var vscode = __toESM(require("vscode"));
@@ -3951,11 +3952,21 @@ async function getConversations() {
     const steps = parseJsonl(transcriptContent);
     const stepCount = steps.length;
     let title = "";
-    const firstUserInput = steps.find((s) => s.type === "USER_INPUT");
-    if (firstUserInput && firstUserInput.content) {
-      title = firstUserInput.content.replace(/<[^>]*>/g, "").trim();
-      if (title.length > 80) {
-        title = title.substring(0, 80) + "...";
+    const overridePath = path2.join(convPath, "title_override.txt");
+    try {
+      const overrideContent = await fs2.readFile(overridePath, "utf8");
+      if (overrideContent.trim()) {
+        title = overrideContent.trim();
+      }
+    } catch (_) {
+    }
+    if (!title) {
+      const firstUserInput = steps.find((s) => s.type === "USER_INPUT");
+      if (firstUserInput && firstUserInput.content) {
+        title = firstUserInput.content.replace(/<[^>]*>/g, "").trim();
+        if (title.length > 80) {
+          title = title.substring(0, 80) + "...";
+        }
       }
     }
     if (!title) {
@@ -3992,11 +4003,21 @@ async function getConversationDetail(id) {
   const steps = parseJsonl(transcriptContent);
   const stepCount = steps.length;
   let title = "";
-  const firstUserInput = steps.find((s) => s.type === "USER_INPUT");
-  if (firstUserInput && firstUserInput.content) {
-    title = firstUserInput.content.replace(/<[^>]*>/g, "").trim();
-    if (title.length > 80) {
-      title = title.substring(0, 80) + "...";
+  const overridePath = path2.join(convPath, "title_override.txt");
+  try {
+    const overrideContent = await fs2.readFile(overridePath, "utf8");
+    if (overrideContent.trim()) {
+      title = overrideContent.trim();
+    }
+  } catch (_) {
+  }
+  if (!title) {
+    const firstUserInput = steps.find((s) => s.type === "USER_INPUT");
+    if (firstUserInput && firstUserInput.content) {
+      title = firstUserInput.content.replace(/<[^>]*>/g, "").trim();
+      if (title.length > 80) {
+        title = title.substring(0, 80) + "...";
+      }
     }
   }
   if (!title) {
@@ -4057,6 +4078,11 @@ async function addConversationMessage(id, source, type, content) {
   const line = JSON.stringify(newStep) + "\n";
   await fs2.appendFile(transcriptPath, line, "utf8");
   return getConversationDetail(id);
+}
+async function renameConversation(id, newTitle) {
+  const brainDir = getBrainDirectory();
+  const overridePath = path2.join(brainDir, id, "title_override.txt");
+  await fs2.writeFile(overridePath, newTitle.trim(), "utf8");
 }
 
 // src/providers/mcpProvider.ts
@@ -4389,6 +4415,175 @@ async function getKnowledgeItems() {
   });
 }
 
+// src/services/conversationWatcher.ts
+var fs3 = __toESM(require("fs"));
+var ConversationWatcher = class {
+  _watchers = /* @__PURE__ */ new Map();
+  _callback;
+  _debounceTimers = /* @__PURE__ */ new Map();
+  constructor(callback) {
+    this._callback = callback;
+  }
+  /**
+   * Start watching a specific conversation's transcript file.
+   * Safe to call multiple times — re-watches if file has changed.
+   */
+  watch(conversationId, transcriptPath) {
+    if (this._watchers.has(conversationId)) {
+      return;
+    }
+    try {
+      const stat2 = fs3.statSync(transcriptPath);
+      const entry = {
+        watcher: null,
+        lastSize: stat2.size,
+        transcriptPath
+      };
+      const watcher = fs3.watch(transcriptPath, { persistent: false }, (eventType) => {
+        if (eventType === "change") {
+          this._debouncedCheck(conversationId, entry);
+        }
+      });
+      watcher.on("error", () => {
+        this.unwatch(conversationId);
+      });
+      entry.watcher = watcher;
+      this._watchers.set(conversationId, entry);
+    } catch (_e) {
+    }
+  }
+  /**
+   * Stop watching a specific conversation.
+   */
+  unwatch(conversationId) {
+    const existing = this._watchers.get(conversationId);
+    if (existing) {
+      existing.watcher?.close();
+      this._watchers.delete(conversationId);
+    }
+    const timer = this._debounceTimers.get(conversationId);
+    if (timer) {
+      clearTimeout(timer);
+      this._debounceTimers.delete(conversationId);
+    }
+  }
+  /**
+   * Stop watching ALL conversations and clean up.
+   */
+  disposeAll() {
+    for (const id of this._watchers.keys()) {
+      this.unwatch(id);
+    }
+  }
+  /**
+   * Returns the set of currently watched conversation IDs.
+   */
+  watchedIds() {
+    return Array.from(this._watchers.keys());
+  }
+  // -----------------------------------------------------------------------
+  // Private helpers
+  // -----------------------------------------------------------------------
+  _debouncedCheck(conversationId, entry) {
+    const existing = this._debounceTimers.get(conversationId);
+    if (existing) {
+      clearTimeout(existing);
+    }
+    const timer = setTimeout(() => {
+      this._debounceTimers.delete(conversationId);
+      this._checkForNewSteps(conversationId, entry);
+    }, 150);
+    this._debounceTimers.set(conversationId, timer);
+  }
+  _checkForNewSteps(conversationId, entry) {
+    try {
+      const stat2 = fs3.statSync(entry.transcriptPath);
+      if (stat2.size <= entry.lastSize) {
+        return;
+      }
+      const fd = fs3.openSync(entry.transcriptPath, "r");
+      const newByteCount = stat2.size - entry.lastSize;
+      const buf = Buffer.alloc(newByteCount);
+      fs3.readSync(fd, buf, 0, newByteCount, entry.lastSize);
+      fs3.closeSync(fd);
+      entry.lastSize = stat2.size;
+      const newContent = buf.toString("utf8");
+      const newSteps = parseJsonl(newContent);
+      if (newSteps.length > 0) {
+        const fullContent = fs3.readFileSync(entry.transcriptPath, "utf8");
+        const allSteps = parseJsonl(fullContent);
+        this._callback({
+          conversationId,
+          newSteps,
+          totalStepCount: allSteps.length
+        });
+      }
+    } catch (_e) {
+    }
+  }
+};
+
+// src/services/modelCatalog.ts
+function getModelCatalog() {
+  return [
+    // ── Gemini 3.5 Flash ──────────────────────────────────────────────────
+    {
+      id: "gemini-3.5-flash-medium",
+      displayName: "Gemini 3.5 Flash (Medium)",
+      tier: "Medium",
+      speed: "Fast"
+    },
+    {
+      id: "gemini-3.5-flash-high",
+      displayName: "Gemini 3.5 Flash (High)",
+      tier: "High",
+      speed: "Fast"
+    },
+    {
+      id: "gemini-3.5-flash-low",
+      displayName: "Gemini 3.5 Flash (Low)",
+      tier: "Low",
+      speed: "Fast"
+    },
+    // ── Gemini 3.1 Pro ────────────────────────────────────────────────────
+    {
+      id: "gemini-3.1-pro-low",
+      displayName: "Gemini 3.1 Pro (Low)",
+      tier: "Low",
+      speed: "Balanced"
+    },
+    {
+      id: "gemini-3.1-pro-high",
+      displayName: "Gemini 3.1 Pro (High)",
+      tier: "High",
+      speed: "Balanced"
+    },
+    // ── Claude ────────────────────────────────────────────────────────────
+    {
+      id: "claude-sonnet-4.6-thinking",
+      displayName: "Claude Sonnet 4.6 (Thinking)",
+      thinking: true,
+      speed: "Thoughtful"
+    },
+    {
+      id: "claude-opus-4.6-thinking",
+      displayName: "Claude Opus 4.6 (Thinking)",
+      thinking: true,
+      speed: "Thoughtful"
+    },
+    // ── Open Source ───────────────────────────────────────────────────────
+    {
+      id: "gpt-oss-120b-medium",
+      displayName: "GPT-OSS 120B (Medium)",
+      tier: "Medium",
+      speed: "Balanced"
+    }
+  ];
+}
+function getDefaultModel() {
+  return getModelCatalog()[0];
+}
+
 // src/webview/webviewManager.ts
 var WebviewManager = class {
   constructor(_context) {
@@ -4412,6 +4607,16 @@ var WebviewManager = class {
       dark: iconUri
     };
     this._panel.webview.html = getWebviewContent(this._panel.webview, extensionUri);
+    this._watcher = new ConversationWatcher((event) => {
+      this._postMessage({
+        type: "stream:conversationSteps",
+        payload: {
+          id: event.conversationId,
+          newSteps: event.newSteps,
+          totalStepCount: event.totalStepCount
+        }
+      });
+    });
     this._panel.webview.onDidReceiveMessage(
       (message) => this._handleMessage(message),
       null,
@@ -4427,6 +4632,10 @@ var WebviewManager = class {
   _disposables = [];
   _onDidDisposeEmitter = new vscode3.EventEmitter();
   onDidDispose = this._onDidDisposeEmitter.event;
+  /** Real-time transcript file watcher */
+  _watcher;
+  /** Track which conversation IDs are actively watched (multi-watch) */
+  _watchedConversations = /* @__PURE__ */ new Set();
   reveal() {
     this._panel.reveal(vscode3.ViewColumn.One);
   }
@@ -4443,9 +4652,50 @@ var WebviewManager = class {
           const detail = await getConversationDetail(id);
           if (detail) {
             this._postMessage({ type: "data:conversationDetail", payload: detail });
+            this._startWatching(id);
           } else {
             this._postMessage({ type: "error:conversationDetail", payload: "Conversation log not found." });
           }
+          break;
+        }
+        case "request:watchConversation": {
+          const id = message.payload;
+          this._startWatching(id);
+          break;
+        }
+        case "request:unwatchConversation": {
+          const id = message.payload;
+          this._watcher.unwatch(id);
+          this._watchedConversations.delete(id);
+          break;
+        }
+        case "request:modelCatalog": {
+          const models = getModelCatalog();
+          const defaultModel = getDefaultModel();
+          this._postMessage({
+            type: "data:modelCatalog",
+            payload: { models, defaultModel }
+          });
+          break;
+        }
+        case "request:sendMessage": {
+          const { id, prompt, model } = message.payload;
+          await addConversationMessage(id, "USER_EXPLICIT", "USER_INPUT", prompt);
+          const detail = await getConversationDetail(id);
+          if (detail) {
+            this._postMessage({ type: "data:conversationDetail", payload: detail });
+          }
+          break;
+        }
+        case "request:renameConversation": {
+          const { id, newTitle } = message.payload;
+          await renameConversation(id, newTitle);
+          const list = await getConversations();
+          this._postMessage({ type: "data:conversations", payload: list });
+          this._postMessage({
+            type: "action:renameSuccess",
+            payload: { id, newTitle }
+          });
           break;
         }
         case "request:mcpServers": {
@@ -4544,43 +4794,39 @@ var WebviewManager = class {
           }
           break;
         }
-        case "request:sendMessage": {
-          const { id, prompt, model } = message.payload;
-          await addConversationMessage(id, "USER_EXPLICIT", "USER_INPUT", prompt);
-          let detail = await getConversationDetail(id);
-          if (detail) {
-            this._postMessage({ type: "data:conversationDetail", payload: detail });
-          }
-          setTimeout(async () => {
-            const thinkingMsg = `I am analyzing your prompt: "${prompt}" using ${model || "Gemini 3.5 Flash"}. Initiating agent orchestration flow to execute tasks on your workspace...`;
-            await addConversationMessage(id, "MODEL", "PLANNER_RESPONSE", thinkingMsg);
-            const updatedDetail = await getConversationDetail(id);
-            if (updatedDetail) {
-              this._postMessage({ type: "data:conversationDetail", payload: updatedDetail });
-            }
-          }, 1e3);
-          break;
-        }
-        case "request:refresh": {
-          break;
-        }
         case "request:popOut": {
           await vscode3.commands.executeCommand("workbench.action.moveEditorToNewWindow");
           break;
         }
       }
     } catch (error) {
-      console.error(error);
+      console.error("[ACC] Handler error:", error);
       this._postMessage({
         type: `error:${message.type.split(":")[1]}`,
         payload: error.message || "An unknown error occurred."
       });
     }
   }
+  // ── Private helpers ───────────────────────────────────────────────────────
+  _startWatching(conversationId) {
+    if (this._watchedConversations.has(conversationId)) {
+      return;
+    }
+    const transcriptPath = path9.join(
+      getBrainDirectory(),
+      conversationId,
+      ".system_generated",
+      "logs",
+      "transcript.jsonl"
+    );
+    this._watcher.watch(conversationId, transcriptPath);
+    this._watchedConversations.add(conversationId);
+  }
   _postMessage(message) {
     this._panel.webview.postMessage(message);
   }
   dispose() {
+    this._watcher.disposeAll();
     this._panel.dispose();
     this._onDidDisposeEmitter.fire();
     while (this._disposables.length) {
