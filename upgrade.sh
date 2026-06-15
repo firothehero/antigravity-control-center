@@ -18,7 +18,7 @@ npm run build
 
 # 3. Package to VSIX
 echo "Packaging new VSIX installer..."
-npx @vscode/vsce package --no-dependencies --allow-missing-repository --allow-star-activation -o antigravity-control-center-0.1.0.vsix
+npx @vscode/vsce package --no-dependencies --allow-missing-repository --allow-star-activation
 
 VSIX_FILE=$(ls *.vsix | head -n 1)
 
@@ -29,16 +29,27 @@ fi
 
 echo "Generated VSIX: $VSIX_FILE"
 
-# 4. Install into IDE
+# 4. Install into IDE — try multiple CLI paths
+ANTIGRAVITY_CLI="$HOME/.antigravity-ide/antigravity-ide/bin/antigravity-ide"
+
 echo "Re-installing extension..."
-if command -v code &> /dev/null; then
+if [ -x "$ANTIGRAVITY_CLI" ]; then
+    "$ANTIGRAVITY_CLI" --install-extension "$VSIX_FILE" --force
+    echo "✅ Installed via antigravity-ide CLI"
+elif command -v antigravity-ide &> /dev/null; then
+    antigravity-ide --install-extension "$VSIX_FILE" --force
+    echo "✅ Installed via antigravity-ide (PATH)"
+elif command -v code &> /dev/null; then
     code --install-extension "$VSIX_FILE" --force
+    echo "✅ Installed via code CLI"
 elif command -v antigravity &> /dev/null; then
     antigravity --install-extension "$VSIX_FILE" --force
+    echo "✅ Installed via antigravity CLI"
 else
-    echo "⚠️ Warning: Neither 'code' nor 'antigravity' command-line tools were found in your PATH."
-    echo "👉 You can install it manually in the IDE by going to Extensions -> '...' menu -> 'Install from VSIX...' and selecting:"
+    echo "⚠️ Warning: No IDE CLI tool found."
+    echo "👉 Install manually: Extensions → ⋯ → Install from VSIX → select:"
     echo "   $(pwd)/$VSIX_FILE"
 fi
 
-echo "=== Upgrade Sequence Completed! ==="
+echo ""
+echo "=== Upgrade Complete! Reload the IDE window (Cmd+Shift+P → Reload Window) ==="

@@ -96,6 +96,37 @@ window.Modules.Settings = {
     dirSec.appendChild(btnRow);
     
     form.appendChild(dirSec);
+
+    // ── SDK Status Section ───────────────────────────────────────────────
+    const sdkSec = document.createElement('div');
+    sdkSec.className = 'settings-section';
+    sdkSec.style.marginTop = 'var(--space-md)';
+
+    const sdkAvail = settings.sdkAvailable;
+    const sdkIcon = sdkAvail ? '🟢' : '🟡';
+    const sdkMode = sdkAvail ? 'SDK Connected' : 'Filesystem Fallback';
+    const sdkError = settings.sdkError ? `<span style="color: var(--color-warning); font-size: 11px; display: block; margin-top: 4px;">⚠️ ${settings.sdkError}</span>` : '';
+
+    sdkSec.innerHTML = `
+      <h3 class="settings-section-title">🔌 Antigravity SDK Status</h3>
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--color-surface); border-radius: var(--radius-sm); border: 1px solid var(--color-surface-border);">
+        <span style="font-size: 16px;">${sdkIcon}</span>
+        <div>
+          <span style="color: var(--color-text-primary); font-weight: 600;">${sdkMode}</span>
+          <span style="color: var(--color-text-muted); font-size: 11px; margin-left: 8px;">Mode: ${sdkAvail ? 'antigravity-sdk' : 'direct filesystem'}</span>
+          ${sdkError}
+        </div>
+      </div>
+      <div id="sdk-preferences-container" style="margin-top: var(--space-md);"></div>
+      <div id="sdk-diagnostics-container" style="margin-top: var(--space-md);"></div>
+    `;
+    form.appendChild(sdkSec);
+
+    // Request SDK data if available
+    if (sdkAvail) {
+      vscode.postMessage({ type: 'request:agentPreferences' });
+      vscode.postMessage({ type: 'request:systemDiagnostics' });
+    }
     
     // System Instructions & Help Guide Section
     const instSec = document.createElement('div');
@@ -128,13 +159,14 @@ window.Modules.Settings = {
         </div>
         
         <div style="border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: var(--space-sm)">
-          <strong style="color: var(--color-text-primary)">3. Primary Architectural Guidelines</strong>
-          <p style="margin-top: 4px">When modifying and extending workspace filesystems, follow these foundational design rules:</p>
+          <strong style="color: var(--color-text-primary)">3. SDK-Powered Features (v0.2.0)</strong>
+          <p style="margin-top: 4px">When running inside Antigravity IDE, the Control Center uses the <code>antigravity-sdk</code> for enhanced capabilities:</p>
           <ul style="padding-left: 20px; margin-top: 6px; list-style-type: square; display: flex; flex-direction: column; gap: 4px;">
-            <li><strong>Fat Models, Thin Views:</strong> Implement core business logic in databases and models, keeping routing layers lightweight.</li>
-            <li><strong>Locator Identity Convention:</strong> Refer to cross-document relations by human-readable string labels (e.g. <code>user.firas_sleiman</code>) instead of database IDs.</li>
-            <li><strong>Single Shared Library:</strong> Always declare base entities and model registries inside the embedded <code>tenn_common</code> in <code>tenn_saher</code>.</li>
-            <li><strong>Security Validation:</strong> Gate write operations behind authorization factories, verifying user identities before committing modifications.</li>
+            <li><strong>Real-time Event Monitoring:</strong> Agent progress, session switches, and new conversations are detected automatically via SDK event polling.</li>
+            <li><strong>Step Control:</strong> Accept or reject code edits and terminal commands directly from the conversation header toolbar.</li>
+            <li><strong>Focus in Antigravity:</strong> Click the focus icon to switch the native Antigravity panel to any conversation.</li>
+            <li><strong>Headless Cascades:</strong> Create and manage conversations via the Language Server bridge without UI flickering.</li>
+            <li><strong>Agent Preferences:</strong> View all 16 agent settings (terminal policy, secure mode, sandbox, etc.) in the Settings panel.</li>
           </ul>
         </div>
 
@@ -198,5 +230,91 @@ window.Modules.Settings = {
     
     setupRadioOption('mode-webview-opt', 'webview');
     setupRadioOption('mode-external-opt', 'external');
+  },
+
+  // ── SDK Callback Methods ────────────────────────────────────────────────
+
+  /**
+   * Called when agent preferences data arrives from the SDK.
+   */
+  onPreferencesLoaded(prefs) {
+    const container = document.getElementById('sdk-preferences-container');
+    if (!container || !prefs) return;
+
+    const items = [
+      { label: 'Terminal Policy', value: prefs.terminalExecutionPolicy, icon: '💻' },
+      { label: 'Artifact Review', value: prefs.artifactReviewPolicy, icon: '📋' },
+      { label: 'Secure Mode', value: prefs.secureModeEnabled ? 'Enabled' : 'Disabled', icon: prefs.secureModeEnabled ? '🔒' : '🔓' },
+      { label: 'Terminal Sandbox', value: prefs.terminalSandboxEnabled ? 'Enabled' : 'Disabled', icon: '🏗️' },
+      { label: 'Shell Integration', value: prefs.shellIntegrationEnabled ? 'Enabled' : 'Disabled', icon: '🐚' },
+      { label: 'Non-Workspace Files', value: prefs.allowNonWorkspaceFiles ? 'Allowed' : 'Restricted', icon: '📂' },
+    ];
+
+    container.innerHTML = `
+      <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px; font-weight: 600;">🧠 Agent Preferences</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        ${items.map(item => `
+          <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--color-surface); border-radius: var(--radius-xs); border: 1px solid var(--color-surface-border);">
+            <span style="font-size: 14px;">${item.icon}</span>
+            <div>
+              <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">${item.label}</div>
+              <div style="font-size: 12px; color: var(--color-text-primary); font-weight: 500;">${item.value}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  },
+
+  /**
+   * Called when system diagnostics data arrives from the SDK.
+   */
+  onDiagnosticsLoaded(diag) {
+    const container = document.getElementById('sdk-diagnostics-container');
+    if (!container || !diag) return;
+
+    container.innerHTML = `
+      <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 8px; font-weight: 600;">🖥️ System Diagnostics</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--color-surface); border-radius: var(--radius-xs); border: 1px solid var(--color-surface-border);">
+          <span style="font-size: 14px;">💻</span>
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Operating System</div>
+            <div style="font-size: 12px; color: var(--color-text-primary); font-weight: 500;">${diag.operatingSystem}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--color-surface); border-radius: var(--radius-xs); border: 1px solid var(--color-surface-border);">
+          <span style="font-size: 14px;">👤</span>
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">User</div>
+            <div style="font-size: 12px; color: var(--color-text-primary); font-weight: 500;">${diag.userName}</div>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--color-surface); border-radius: var(--radius-xs); border: 1px solid var(--color-surface-border);">
+          <span style="font-size: 14px;">${diag.isRemote ? '🌐' : '🏠'}</span>
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Connection</div>
+            <div style="font-size: 12px; color: var(--color-text-primary); font-weight: 500;">${diag.isRemote ? 'Remote (SSH)' : 'Local'}</div>
+          </div>
+        </div>
+        ${diag.mcpUrl ? `
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: var(--color-surface); border-radius: var(--radius-xs); border: 1px solid var(--color-surface-border);">
+          <span style="font-size: 14px;">🔌</span>
+          <div>
+            <div style="font-size: 10px; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: 0.5px;">MCP URL</div>
+            <div style="font-size: 11px; color: var(--color-text-primary); font-family: var(--font-mono);">${diag.mcpUrl}</div>
+          </div>
+        </div>` : ''}
+      </div>
+    `;
+  },
+
+  /**
+   * Called when SDK status data arrives.
+   */
+  onSDKStatusLoaded(status) {
+    // Status is already rendered in the initial render — this is for
+    // dynamic updates if the SDK status changes during runtime
+    console.log('[ACC-Settings] SDK Status:', status);
   }
 };

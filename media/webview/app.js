@@ -70,7 +70,16 @@
     // 6. Global Keyboard Shortcuts
     window.addEventListener('keydown', handleGlobalKeydown);
     
-    // 7. Load default module
+    // 7. Credits link — open in external browser
+    const creditsLink = document.getElementById('credits-link');
+    if (creditsLink) {
+      creditsLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        vscode.postMessage({ type: 'request:openUrl', payload: 'https://github.com/firothehero' });
+      });
+    }
+    
+    // 8. Load default module
     navigate(state.currentModule);
   }
 
@@ -288,16 +297,113 @@
       // ── Rename Success ────────────────────────────────────────────────
       case 'action:renameSuccess':
         window.showToast({ message: 'Conversation renamed.', type: 'success' });
-        // Update conversation list if visible
-        if (state.currentModule === 'conversations' && message.payload) {
+        if (message.payload) {
           const { id, newTitle } = message.payload;
+          // Update conversation list data
           if (state.moduleData.conversations) {
             const conv = state.moduleData.conversations.find(c => c.id === id);
             if (conv) {
               conv.title = newTitle;
-              filterAndRenderSubList('conversations', state.moduleData.conversations);
+              if (state.currentModule === 'conversations') {
+                filterAndRenderSubList('conversations', state.moduleData.conversations);
+              }
             }
           }
+          // Update right panel header title
+          const titleEl = document.getElementById(`acc-conv-title-${id}`);
+          if (titleEl) {
+            titleEl.textContent = newTitle;
+            titleEl.title = newTitle;
+          }
+          // Update selected item data if this is the active detail
+          if (state.selectedItemData && state.selectedItemData.id === id) {
+            state.selectedItemData.title = newTitle;
+            saveState();
+          }
+        }
+        break;
+
+      // ── SDK: Active Session Changed ──────────────────────────────────
+      case 'stream:activeSessionChanged':
+        if (message.payload && message.payload.id) {
+          updateStatusText(`Active session: ${message.payload.title || message.payload.id.substring(0, 8)}`);
+          // Auto-navigate to the active conversation if on conversations tab
+          if (state.currentModule === 'conversations') {
+            state.selectedItemId = message.payload.id;
+            saveState();
+            vscode.postMessage({ type: 'request:conversationDetail', payload: message.payload.id });
+          }
+        }
+        break;
+
+      // ── SDK: New Conversation Detected ───────────────────────────────
+      case 'stream:newConversation':
+        // Refresh conversation list to pick up the new entry
+        vscode.postMessage({ type: 'request:conversations' });
+        window.showToast({ message: 'New conversation detected', type: 'info' });
+        break;
+
+      // ── SDK: State Changed (preferences/settings) ───────────────────
+      case 'stream:stateChanged':
+        if (message.payload) {
+          console.log('[ACC] State changed:', message.payload.key, message.payload.previousSize, '→', message.payload.newSize);
+        }
+        break;
+
+      // ── SDK: Create Conversation Success ─────────────────────────────
+      case 'action:createConversationSuccess':
+        if (message.payload && message.payload.id) {
+          window.showToast({ message: 'New conversation created!', type: 'success' });
+          state.selectedItemId = message.payload.id;
+          saveState();
+          // Load the new conversation detail
+          vscode.postMessage({ type: 'request:conversationDetail', payload: message.payload.id });
+        }
+        break;
+
+      // ── SDK: Focus Conversation Success ──────────────────────────────
+      case 'action:focusConversationSuccess':
+        if (message.payload && message.payload.success) {
+          window.showToast({ message: 'Focused in Antigravity', type: 'success' });
+        }
+        break;
+
+      // ── SDK: Step Control Result ─────────────────────────────────────
+      case 'action:stepControlResult':
+        if (message.payload) {
+          const action = message.payload.action || 'Step action';
+          const success = message.payload.success;
+          window.showToast({
+            message: success ? `${action} executed` : `${action} failed (SDK may not be available)`,
+            type: success ? 'success' : 'error'
+          });
+        }
+        break;
+
+      // ── SDK: Agent Preferences ───────────────────────────────────────
+      case 'data:agentPreferences':
+        state.moduleData.agentPreferences = message.payload;
+        saveState();
+        if (state.currentModule === 'settings') {
+          window.Modules.Settings.onPreferencesLoaded(message.payload);
+        }
+        break;
+
+      // ── SDK: System Diagnostics ──────────────────────────────────────
+      case 'data:systemDiagnostics':
+        state.moduleData.systemDiagnostics = message.payload;
+        saveState();
+        if (state.currentModule === 'settings') {
+          window.Modules.Settings.onDiagnosticsLoaded(message.payload);
+        }
+        break;
+
+      // ── SDK: SDK Status ──────────────────────────────────────────────
+      case 'data:sdkStatus':
+        state.moduleData.sdkStatus = message.payload;
+        saveState();
+        if (state.currentModule === 'settings') {
+          window.Modules.Settings.onSDKStatusLoaded(message.payload);
         }
         break;
     }
@@ -318,7 +424,7 @@
     
     const searchIcon = document.createElement('span');
     searchIcon.className = 'sub-list-search-icon';
-    searchIcon.innerHTML = '🔍';
+    searchIcon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>';
     searchWrapper.appendChild(searchIcon);
     
     const searchInput = document.createElement('input');

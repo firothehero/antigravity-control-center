@@ -105,10 +105,13 @@ export function getWebviewContent(webview: vscode.Webview, extensionUri: vscode.
           <span class="status-indicator"></span>
           <span class="status-text" id="status-text">Scanning directories...</span>
         </div>
+        <div class="status-bar-center">
+          <span class="status-credits">Created by Firas Sleiman — <a href="https://github.com/firothehero" class="status-credits-link" id="credits-link">github.com/firothehero</a></span>
+        </div>
         <div class="status-bar-right">
           <span class="status-item" id="last-updated-text">Synced: Never</span>
           <span class="status-divider">|</span>
-          <span class="status-item">v0.1.0</span>
+          <span class="status-item">v0.2.0</span>
         </div>
       </footer>
     </main>

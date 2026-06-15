@@ -18,12 +18,20 @@ window.Modules.Conversations = {
   },
 
   onModelCatalogLoaded(catalog, defaultModel) {
-    this._modelCatalog = catalog || [];
-    this._selectedModel = defaultModel || (catalog && catalog[0]) || null;
-    // Re-render input if it's visible
+    // Backend sends {id, label, quality, category} — normalize to displayName
+    this._modelCatalog = (catalog || []).map(m => ({
+      ...m,
+      displayName: m.displayName || m.label || m.id,
+      speed: m.speed || m.category || '',
+    }));
+    this._selectedModel = defaultModel
+      ? { ...defaultModel, displayName: defaultModel.displayName || defaultModel.label || defaultModel.id, speed: defaultModel.speed || defaultModel.category || '' }
+      : (this._modelCatalog[0] || null);
+    // Re-render pill if it's visible
     const sel = document.getElementById('acc-model-selector-pill');
     if (sel && this._selectedModel) {
-      sel.querySelector('.acc-model-label').textContent = this._selectedModel.displayName;
+      const labelEl = sel.querySelector('.acc-model-label');
+      if (labelEl) { labelEl.textContent = this._selectedModel.displayName; }
     }
   },
 
@@ -55,6 +63,11 @@ window.Modules.Conversations = {
             <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
           </svg>
         </button>
+        <button class="acc-conv-focus-btn" id="acc-focus-btn-${detail.id}" title="Focus in Antigravity IDE">
+          <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M5.5 0a.5.5 0 0 1 .5.5v4A1.5 1.5 0 0 1 4.5 6h-4a.5.5 0 0 1 0-1h4a.5.5 0 0 0 .5-.5v-4a.5.5 0 0 1 .5-.5zm5 0a.5.5 0 0 1 .5.5v4a.5.5 0 0 0 .5.5h4a.5.5 0 0 1 0 1h-4A1.5 1.5 0 0 1 10 4.5v-4a.5.5 0 0 1 .5-.5zM0 10.5a.5.5 0 0 1 .5-.5h4A1.5 1.5 0 0 1 6 11.5v4a.5.5 0 0 1-1 0v-4a.5.5 0 0 0-.5-.5h-4a.5.5 0 0 1-.5-.5zm10 0a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 0 1h-4a.5.5 0 0 0-.5.5v4a.5.5 0 0 1-1 0v-4z"/>
+          </svg>
+        </button>
       </div>
       <div class="acc-conv-meta">
         <span class="acc-conv-meta-item">${detail.stepCount} steps</span>
@@ -64,6 +77,13 @@ window.Modules.Conversations = {
         <span class="acc-conv-meta-item">${detail.toolCalls || 0} tool calls</span>
         ${detail.project ? `<span class="acc-conv-meta-dot">·</span><span class="badge badge-workspace" style="font-size:10px;padding:1px 5px;">${detail.project}</span>` : ''}
       </div>
+      <div class="acc-step-control-bar" id="acc-step-control-${detail.id}">
+        <button class="acc-step-btn acc-step-accept" data-action="request:acceptStep" title="Accept code edit">✅ Accept Edit</button>
+        <button class="acc-step-btn acc-step-reject" data-action="request:rejectStep" title="Reject code edit">❌ Reject Edit</button>
+        <button class="acc-step-btn acc-step-accept-cmd" data-action="request:acceptTerminalCommand" title="Accept terminal command">▶️ Accept Cmd</button>
+        <button class="acc-step-btn acc-step-reject-cmd" data-action="request:rejectTerminalCommand" title="Reject terminal command">⏹️ Reject Cmd</button>
+        <button class="acc-step-btn acc-step-run-cmd" data-action="request:runTerminalCommand" title="Run pending command">🔄 Run Cmd</button>
+      </div>
     `;
 
     // Rename button handler
@@ -71,6 +91,25 @@ window.Modules.Conversations = {
     if (renameBtn) {
       renameBtn.addEventListener('click', () => this._showRenameModal(detail.id, detail.title));
     }
+
+    // Focus button handler
+    const focusBtn = convHeader.querySelector(`#acc-focus-btn-${detail.id}`);
+    if (focusBtn) {
+      focusBtn.addEventListener('click', () => {
+        vscode.postMessage({ type: 'request:focusConversation', payload: detail.id });
+      });
+    }
+
+    // Step control button handlers
+    const stepBtns = convHeader.querySelectorAll('.acc-step-btn');
+    stepBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const action = btn.dataset.action;
+        if (action) {
+          vscode.postMessage({ type: action });
+        }
+      });
+    });
 
     chatContainer.appendChild(convHeader);
 
@@ -283,7 +322,7 @@ window.Modules.Conversations = {
         <div class="acc-input-footer">
           <div class="acc-model-selector" id="acc-model-selector-${conversationId}" role="button" tabindex="0" title="Change model">
             <span class="acc-model-plus">+</span>
-            <span class="acc-model-label">${this._selectedModel ? this._selectedModel.displayName : 'Gemini 3.5 Flash (Medium)'}</span>
+            <span class="acc-model-label">${this._selectedModel ? (this._selectedModel.displayName || this._selectedModel.label || 'Select Model') : 'Gemini 3.5 Flash (Medium)'}</span>
             <svg class="acc-model-caret" xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
               <path d="M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z"/>
             </svg>

@@ -9,6 +9,7 @@
   --color-bg: hsl(222, 47%, 5%);
   --color-surface: hsla(222, 35%, 11%, 0.85);
   --color-surface-hover: hsla(222, 35%, 16%, 0.95);
+  --color-surface-elevated: hsl(222, 35%, 14%);
   --color-surface-border: hsla(222, 30%, 20%, 0.5);
   
   --color-primary: hsl(250, 80%, 65%);     /* Electric Violet */
@@ -326,6 +327,41 @@ a:hover {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
+  flex: 1;
+}
+
+.status-bar-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 2;
+}
+
+.status-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.status-credits {
+  font-size: 10px;
+  color: var(--color-text-muted);
+  opacity: 0.7;
+}
+
+.status-credits-link {
+  color: var(--color-secondary);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.status-credits-link:hover {
+  color: var(--color-secondary-hover);
+  opacity: 1;
+  text-decoration: underline;
 }
 
 .status-indicator {
@@ -1415,7 +1451,7 @@ input[type="text"]:focus, select:focus {
   background: var(--color-surface);
   border: 1px solid var(--color-surface-border);
   color: var(--color-text-primary);
-  padding: 8px 12px 8px 32px;
+  padding: 8px 12px 8px 36px;
   border-radius: var(--radius-sm);
   font-size: 13px;
   transition: all var(--transition-fast);
@@ -1430,8 +1466,16 @@ input[type="text"]:focus, select:focus {
 .sub-list-search-icon {
   position: absolute;
   left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--color-text-muted);
   pointer-events: none;
+  overflow: hidden;
 }
 
 .sub-list-filter-select {
@@ -1797,6 +1841,62 @@ input[type="text"]:focus, select:focus {
   color: var(--color-text-muted);
   opacity: 0.5;
 }
+
+/* Focus in Antigravity button */
+.acc-conv-focus-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: color var(--transition-fast), background var(--transition-fast);
+  flex-shrink: 0;
+}
+.acc-conv-focus-btn:hover {
+  color: var(--color-primary);
+  background: var(--color-surface-hover);
+}
+
+/* Step Control Toolbar */
+.acc-step-control-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--color-surface-border);
+  flex-wrap: wrap;
+}
+
+.acc-step-btn {
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-border);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.acc-step-btn:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 8px rgba(var(--color-primary-rgb), 0.2);
+}
+.acc-step-accept:hover { border-color: var(--color-success); }
+.acc-step-reject:hover { border-color: var(--color-error); }
+.acc-step-accept-cmd:hover { border-color: var(--color-success); }
+.acc-step-reject-cmd:hover { border-color: var(--color-error); }
+.acc-step-run-cmd:hover { border-color: var(--color-warning); }
 
 
 /* ---------------------------------------------------- */

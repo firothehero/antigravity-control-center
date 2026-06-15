@@ -1,9 +1,20 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs/promises';
 import { getWebviewContent } from './getWebviewContent';
 import { WebviewMessage } from '../models';
-import { getConversations, getConversationDetail, addConversationMessage, renameConversation } from '../providers/conversationProvider';
+import {
+  getConversations,
+  getConversationDetail,
+  sendConversationMessage,
+  renameConversation,
+  createConversation,
+  focusConversation,
+  acceptStep,
+  rejectStep,
+  acceptTerminalCommand,
+  rejectTerminalCommand,
+  runTerminalCommand,
+} from '../providers/conversationProvider';
 import { getMcpServers, getMcpToolDetail } from '../providers/mcpProvider';
 import { getAllSkills, getSkillDetail } from '../providers/skillProvider';
 import { getAgents } from '../providers/agentProvider';
@@ -12,8 +23,13 @@ import { getWorkflows } from '../providers/workflowProvider';
 import { getKnowledgeItems, getKnowledgeArtifact } from '../providers/knowledgeProvider';
 import { directoryExists, fileExists } from '../utils/fileSystem';
 import { getDataDirectory, getBrainDirectory } from '../utils/paths';
-import { ConversationWatcher } from '../services/conversationWatcher';
 import { getModelCatalog, getDefaultModel } from '../services/modelCatalog';
+import { isSDKAvailable, getSDKInitError } from '../services/sdkService';
+import { SDKMonitorService } from '../services/sdkMonitorService';
+import { getAgentPreferences, getSystemDiagnostics } from '../services/preferencesService';
+
+// Legacy fallback import — only used when SDK is not available
+import { ConversationWatcher } from '../services/conversationWatcher';
 
 export class WebviewManager {
   private _panel: vscode.WebviewPanel;
@@ -21,10 +37,13 @@ export class WebviewManager {
   private _onDidDisposeEmitter = new vscode.EventEmitter<void>();
   public readonly onDidDispose = this._onDidDisposeEmitter.event;
 
-  /** Real-time transcript file watcher */
-  private _watcher: ConversationWatcher;
+  /** SDK-based real-time event monitor (primary) */
+  private _sdkMonitor: SDKMonitorService | null = null;
 
-  /** Track which conversation IDs are actively watched (multi-watch) */
+  /** Legacy file-based transcript watcher (fallback) */
+  private _legacyWatcher: ConversationWatcher | null = null;
+
+  /** Track which conversation IDs are actively watched (legacy mode) */
   private _watchedConversations: Set<string> = new Set();
 
   constructor(private readonly _context: vscode.ExtensionContext) {
@@ -53,18 +72,8 @@ export class WebviewManager {
     // Set HTML content
     this._panel.webview.html = getWebviewContent(this._panel.webview, extensionUri);
 
-    // Initialize the real-time watcher.  When new transcript steps arrive
-    // we push them directly to the webview so the chat view updates live.
-    this._watcher = new ConversationWatcher((event) => {
-      this._postMessage({
-        type: 'stream:conversationSteps',
-        payload: {
-          id: event.conversationId,
-          newSteps: event.newSteps,
-          totalStepCount: event.totalStepCount,
-        },
-      } as any);
-    });
+    // Initialize real-time monitoring
+    this._initializeMonitoring();
 
     // Wire up event listeners
     this._panel.webview.onDidReceiveMessage(
@@ -84,9 +93,77 @@ export class WebviewManager {
     this._panel.reveal(vscode.ViewColumn.One);
   }
 
+  // ── Monitoring Setup ──────────────────────────────────────────────────────
+
+  private _initializeMonitoring(): void {
+    // ALWAYS start the legacy filesystem watcher — it provides actual step
+    // content for real-time chat rendering. The SDK monitor only notifies
+    // about step count changes (no content), session switches, and new convos.
+    this._legacyWatcher = new ConversationWatcher((event) => {
+      this._postMessage({
+        type: 'stream:conversationSteps',
+        payload: {
+          id: event.conversationId,
+          newSteps: event.newSteps,
+          totalStepCount: event.totalStepCount,
+        },
+      } as any);
+    });
+    console.log('[ACC] Filesystem watcher initialized for real-time step content');
+
+    if (isSDKAvailable()) {
+      // Additionally: SDK-based event monitoring for session-level events
+      this._sdkMonitor = new SDKMonitorService({
+        onStepCountChanged: (_event) => {
+          // SDK tells us step count changed but doesn't provide content.
+          // The filesystem watcher will fire with actual content shortly
+          // after. We only use this to update metadata like step counts.
+        },
+        onActiveSessionChanged: (event) => {
+          this._postMessage({
+            type: 'stream:activeSessionChanged',
+            payload: {
+              id: event.sessionId,
+              title: event.title,
+            },
+          } as any);
+        },
+        onNewConversation: () => {
+          this._postMessage({
+            type: 'stream:newConversation',
+            payload: {},
+          } as any);
+        },
+        onStateChanged: (event) => {
+          this._postMessage({
+            type: 'stream:stateChanged',
+            payload: event,
+          } as any);
+        },
+      });
+      this._sdkMonitor.start();
+      console.log('[ACC] SDK EventMonitor started for session-level events');
+    }
+  }
+
+  // ── Message Handler ────────────────────────────────────────────────────────
+
   private async _handleMessage(message: WebviewMessage) {
     try {
       switch (message.type) {
+
+        // ── SDK Status ──────────────────────────────────────────────────
+        case 'request:sdkStatus': {
+          this._postMessage({
+            type: 'data:sdkStatus',
+            payload: {
+              available: isSDKAvailable(),
+              error: getSDKInitError(),
+              mode: isSDKAvailable() ? 'sdk' : 'filesystem',
+            },
+          } as any);
+          break;
+        }
 
         // ── Conversations ────────────────────────────────────────────────
         case 'request:conversations': {
@@ -101,7 +178,7 @@ export class WebviewManager {
           if (detail) {
             this._postMessage({ type: 'data:conversationDetail', payload: detail });
             // Start watching this file for real-time streaming updates
-            this._startWatching(id);
+            this._startLegacyWatching(id);
           } else {
             this._postMessage({ type: 'error:conversationDetail', payload: 'Conversation log not found.' });
           }
@@ -109,15 +186,14 @@ export class WebviewManager {
         }
 
         case 'request:watchConversation': {
-          // Explicitly request watching (e.g. user opens a second chat in parallel)
           const id = message.payload as string;
-          this._startWatching(id);
+          this._startLegacyWatching(id);
           break;
         }
 
         case 'request:unwatchConversation': {
           const id = message.payload as string;
-          this._watcher.unwatch(id);
+          this._legacyWatcher?.unwatch(id);
           this._watchedConversations.delete(id);
           break;
         }
@@ -133,23 +209,92 @@ export class WebviewManager {
           break;
         }
 
-        // ── Send Message (append to transcript) ──────────────────────────
+        // ── Send Message ─────────────────────────────────────────────────
         case 'request:sendMessage': {
           const { id, prompt, model } = message.payload;
-
-          // Append user prompt to transcript
-          await addConversationMessage(id, 'USER_EXPLICIT', 'USER_INPUT', prompt);
-
-          // Send back the updated detail immediately so the new user message renders
-          const detail = await getConversationDetail(id);
+          const detail = await sendConversationMessage(id, prompt, model);
           if (detail) {
             this._postMessage({ type: 'data:conversationDetail', payload: detail });
           }
+          break;
+        }
 
-          // NOTE: We don't simulate agent responses here — the actual
-          // Antigravity agent running in the background will write new
-          // steps to transcript.jsonl which the FileWatcher picks up
-          // and streams to the webview automatically.
+        // ── Create Conversation (SDK) ────────────────────────────────────
+        case 'request:createConversation': {
+          const { prompt, model } = message.payload;
+          const newId = await createConversation(prompt, model);
+          if (newId) {
+            this._postMessage({
+              type: 'action:createConversationSuccess',
+              payload: { id: newId },
+            } as any);
+            // Refresh the conversation list
+            const list = await getConversations();
+            this._postMessage({ type: 'data:conversations', payload: list });
+          } else {
+            this._postMessage({
+              type: 'error:conversations',
+              payload: 'Failed to create conversation. SDK may not be available.',
+            });
+          }
+          break;
+        }
+
+        // ── Focus Conversation (SDK) ─────────────────────────────────────
+        case 'request:focusConversation': {
+          const focusId = message.payload as string;
+          const focused = await focusConversation(focusId);
+          this._postMessage({
+            type: 'action:focusConversationSuccess',
+            payload: { id: focusId, success: focused },
+          } as any);
+          break;
+        }
+
+        // ── Step Control (SDK) ───────────────────────────────────────────
+        case 'request:acceptStep': {
+          const success = await acceptStep();
+          this._postMessage({ type: 'action:stepControlResult', payload: { action: 'acceptStep', success } } as any);
+          break;
+        }
+        case 'request:rejectStep': {
+          const success = await rejectStep();
+          this._postMessage({ type: 'action:stepControlResult', payload: { action: 'rejectStep', success } } as any);
+          break;
+        }
+        case 'request:acceptTerminalCommand': {
+          const success = await acceptTerminalCommand();
+          this._postMessage({ type: 'action:stepControlResult', payload: { action: 'acceptTerminalCommand', success } } as any);
+          break;
+        }
+        case 'request:rejectTerminalCommand': {
+          const success = await rejectTerminalCommand();
+          this._postMessage({ type: 'action:stepControlResult', payload: { action: 'rejectTerminalCommand', success } } as any);
+          break;
+        }
+        case 'request:runTerminalCommand': {
+          const success = await runTerminalCommand();
+          this._postMessage({ type: 'action:stepControlResult', payload: { action: 'runTerminalCommand', success } } as any);
+          break;
+        }
+
+        // ── Agent Preferences (SDK) ──────────────────────────────────────
+        case 'request:agentPreferences': {
+          const prefs = await getAgentPreferences();
+          this._postMessage({
+            type: 'data:agentPreferences',
+            payload: prefs,
+          } as any);
+          break;
+        }
+
+        // ── System Diagnostics (SDK) ─────────────────────────────────────
+        case 'request:systemDiagnostics': {
+          const diag = await getSystemDiagnostics();
+          this._postMessage({
+            type: 'data:systemDiagnostics',
+            payload: diag,
+          } as any);
           break;
         }
 
@@ -157,7 +302,6 @@ export class WebviewManager {
         case 'request:renameConversation': {
           const { id, newTitle } = message.payload;
           await renameConversation(id, newTitle);
-          // Refresh the conversation list so the new name shows in Column 2
           const list = await getConversations();
           this._postMessage({ type: 'data:conversations', payload: list });
           this._postMessage({
@@ -231,6 +375,8 @@ export class WebviewManager {
               defaultTab,
               dataDirectory,
               directoryExists: exists,
+              sdkAvailable: isSDKAvailable(),
+              sdkError: getSDKInitError(),
             },
           });
           break;
@@ -255,6 +401,8 @@ export class WebviewManager {
               defaultTab,
               dataDirectory: verifiedDir,
               directoryExists: exists,
+              sdkAvailable: isSDKAvailable(),
+              sdkError: getSDKInitError(),
             },
           });
           break;
@@ -287,6 +435,15 @@ export class WebviewManager {
           await vscode.commands.executeCommand('workbench.action.moveEditorToNewWindow');
           break;
         }
+
+        // ── Open External URL ────────────────────────────────────────────
+        case 'request:openUrl': {
+          const url = message.payload as string;
+          if (url) {
+            await vscode.env.openExternal(vscode.Uri.parse(url));
+          }
+          break;
+        }
       }
     } catch (error: any) {
       console.error('[ACC] Handler error:', error);
@@ -299,8 +456,8 @@ export class WebviewManager {
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
-  private _startWatching(conversationId: string): void {
-    if (this._watchedConversations.has(conversationId)) {
+  private _startLegacyWatching(conversationId: string): void {
+    if (this._watchedConversations.has(conversationId) || !this._legacyWatcher) {
       return;
     }
     const transcriptPath = path.join(
@@ -310,7 +467,7 @@ export class WebviewManager {
       'logs',
       'transcript.jsonl'
     );
-    this._watcher.watch(conversationId, transcriptPath);
+    this._legacyWatcher.watch(conversationId, transcriptPath);
     this._watchedConversations.add(conversationId);
   }
 
@@ -319,7 +476,14 @@ export class WebviewManager {
   }
 
   public dispose() {
-    this._watcher.disposeAll();
+    // Clean up monitoring
+    if (this._sdkMonitor) {
+      this._sdkMonitor.dispose();
+    }
+    if (this._legacyWatcher) {
+      this._legacyWatcher.disposeAll();
+    }
+
     this._panel.dispose();
     this._onDidDisposeEmitter.fire();
 

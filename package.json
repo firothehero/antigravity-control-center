@@ -2,7 +2,7 @@
   "name": "antigravity-control-center",
   "displayName": "Antigravity Control Center",
   "description": "Control Center for Antigravity providing access to Conversation History, Agents, MCPs, Skills and more..",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "tenn-ai",
   "icon": "media/icons/acc_logo.png",
   "repository": {
@@ -96,6 +96,7 @@
     "package": "vsce package"
   },
   "dependencies": {
+    "antigravity-sdk": "^1.7.0",
     "gray-matter": "^4.0.3"
   },
   "devDependencies": {

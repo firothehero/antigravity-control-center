@@ -109,6 +109,7 @@ export interface KnowledgeArtifact {
 // Messaging Protocol between Webview and Extension Host
 
 export type MessageType =
+  // Requests
   | 'request:conversations'
   | 'request:conversationDetail'
   | 'request:conversationPage'
@@ -129,7 +130,20 @@ export type MessageType =
   | 'request:openDirectory'
   | 'request:saveSettings'
   | 'request:popOut'
+  | 'request:openUrl'
   | 'request:sendMessage'
+  // SDK-powered requests (v0.2.0)
+  | 'request:createConversation'
+  | 'request:focusConversation'
+  | 'request:acceptStep'
+  | 'request:rejectStep'
+  | 'request:acceptTerminalCommand'
+  | 'request:rejectTerminalCommand'
+  | 'request:runTerminalCommand'
+  | 'request:agentPreferences'
+  | 'request:systemDiagnostics'
+  | 'request:sdkStatus'
+  // Data responses
   | 'data:conversations'
   | 'data:conversationDetail'
   | 'data:conversationPage'
@@ -142,9 +156,22 @@ export type MessageType =
   | 'data:workflows'
   | 'data:knowledge'
   | 'data:settings'
+  // SDK-powered data responses (v0.2.0)
+  | 'data:agentPreferences'
+  | 'data:systemDiagnostics'
+  | 'data:sdkStatus'
+  // Streaming events
   | 'stream:conversationSteps'
+  | 'stream:activeSessionChanged'
+  | 'stream:newConversation'
+  | 'stream:stateChanged'
+  // Actions
   | 'action:renameSuccess'
   | 'action:saveSettingsSuccess'
+  | 'action:createConversationSuccess'
+  | 'action:focusConversationSuccess'
+  | 'action:stepControlResult'
+  // Errors
   | 'error:conversations'
   | 'error:conversationDetail'
   | 'error:mcpServers'
