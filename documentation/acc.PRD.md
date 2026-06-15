@@ -1,9 +1,9 @@
 # Antigravity Control Center — Product Requirements Document (PRD)
 
-> **Version:** 1.2.0  
+> **Version:** 2.0.0  
 > **Author:** TENN.ai & @firothehero
-> **Date:** 2026-05-30  
-> **Status:** Approved — Native Antigravity Chat Integration Implemented  
+> **Date:** 2026-06-15  
+> **Status:** Approved — Antigravity SDK Integration Complete  
 > **Repository:** `antigravity-control-center`
 
 ---
@@ -32,6 +32,7 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 3. **Allows** CRUD operations where safe (create/edit/delete skills, rules, workflows)
 4. **Provides** real-time monitoring of agent sessions and MCP server health
 5. **Embeds** the exact Antigravity chat UI so users can interact with agents across all conversations simultaneously
+6. **Uses `antigravity-sdk`** (v0.2.0+) as the primary integration layer for managing cascades, sessions, step control, and agent preferences — with transparent filesystem fallback
 
 ---
 
@@ -92,10 +93,10 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 | **Search & Project Filter** | P0 | Search conversations by title; filter by Project/Repository name utilizing a custom dropdown select in the Column 2 header. |
 | **Native Antigravity Chat Timeline** | P0 | Render full chat timeline in Column 3 using the **exact same** Antigravity color-coded message bubbles, tool call accordions, and code blocks. No independent custom UI — must match Antigravity natively. |
 | **Native Antigravity Input Bar** | P0 | Bottom input panel using the exact Antigravity-style input: rounded textarea, `[+] ModelName ▼` model selector pill, microphone icon, and Send button. Enter sends, Shift+Enter creates newline. |
-| **Native Model Selector** | P0 | Model dropdown shows the **exact same models** as Antigravity's own chat: Gemini 3.5 Flash (M/H/L), Gemini 3.1 Pro (L/H), Claude Sonnet/Opus 4.6 (Thinking), GPT-OSS 120B (Medium). Delivered via `request:modelCatalog` message protocol. |
-| **Real-time Streaming** | P0 | `ConversationWatcher` (fs.watch on `transcript.jsonl`) detects new steps in real-time as the agent writes them. New steps are **appended without full re-render** via `stream:conversationSteps` push message. Streaming indicator bar shows "Agent is responding…" with pulsing dot. |
+| **Native Model Selector** | P0 | Model dropdown shows the **exact same models** as Antigravity's own chat: Gemini 3.5 Flash (M/H/L), Gemini 3.1 Pro (L/H), Claude Sonnet/Opus 4.6 (Thinking), GPT-OSS 120B (Medium). Delivered via `request:modelCatalog` message protocol. Backend sends `{id, label, quality, category}` and webview normalizes to `{displayName, speed}` for rendering. Dropdown background uses `--color-surface-elevated` for solid, non-transparent appearance. |
+| **Real-time Streaming** | P0 | **Dual-mode monitoring**: Filesystem `ConversationWatcher` (`fs.watch` on `transcript.jsonl`) is **always** active for step content delivery. When SDK is available, `SDKMonitorService` additionally provides session-level events (active session changed, new conversations). The filesystem watcher provides actual step content (newSteps array) while SDK monitor provides notifications without content. Both run in parallel for comprehensive coverage. Streaming indicator bar shows "Agent is responding…" with pulsing dot. |
 | **Parallel Multi-Chat Monitoring** | P0 | User can switch between any open conversation while the watcher continues monitoring all previously-opened chats simultaneously. New steps from any watched conversation update that conversation's chat view in real-time. |
-| **Conversation Renaming** | P0 | Rename button (pencil icon) in conversation header opens a custom modal (no browser popup). Rename is stored in `title_override.txt` in the brain directory without touching Antigravity's internal protobuf store. |
+| **Conversation Renaming** | P0 | Rename button (pencil icon) opens a custom modal. 4-strategy cascade: (1) `integration.titles.rename()` — **primary**: renderer-side title proxy that writes to a JSON data file the IDE's conversation list reads (requires `enableTitleProxy()` + `installSeamless()` at SDK init), (2) `ls.setTitle()` — direct LS bridge rename, (3) `ls.updateAnnotations()` — annotation fallback, (4) `title_override.txt` filesystem cache (always written). Title priority: override file → SDK title → first USER_INPUT. Right panel header and left list both update immediately on rename. |
 | **Send Message** | P0 | Input bar submits to `request:sendMessage` which appends a `USER_EXPLICIT / USER_INPUT` step to `transcript.jsonl`. The active Antigravity agent picks this up and responds — visible via real-time watcher. |
 | **Conversation Details** | P1 | Show metadata: step count, user messages count, tool call count, project badge |
 | **Export Conversation** | P1 | Export as Markdown, JSON, or HTML |
@@ -193,14 +194,14 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 │  ⚙️ Set  │                                            │
 │          │                                            │
 ├──────────┴────────────────────────────────────────────┤
-│  Status bar: Last refreshed · Item count · Version    │
-└───────────────────────────────────────────────────────┘
+│  Status bar: scan status | Credits: Firas Sleiman | Version │
+└───────────────────────────────────────────────────────────┘
 ```
 
 - **Left Sidebar:** Icon + label navigation (collapsible to icons only)
 - **Content Area:** Dynamic rendering based on selected module
 - **Top Bar:** Module title, search input, action buttons (refresh, filter, create)
-- **Status Bar:** Last scan time, total items, extension version
+- **Status Bar:** Three sections — Left (connection indicator + scan status), Center (credits: "Created by Firas Sleiman — github.com/firothehero" with clickable link via `request:openUrl`), Right (last scan time + version). Uses `flexbox` with `flex: 1/2/1` ratio.
 
 ### 4.3 Interaction Patterns
 
@@ -377,10 +378,49 @@ panel.webview.onDidReceiveMessage(message => {
 
 ## 10. Open Questions
 
-1. **antigravity-sdk adoption:** Should we use the community `antigravity-sdk` for live session monitoring, or rely purely on filesystem reads? The SDK provides real-time session data but is unofficial.
+1. ~~**antigravity-sdk adoption:**~~ ✅ **RESOLVED** — Adopted `antigravity-sdk` as the primary integration layer in v0.2.0. The SDK provides session listing via `cascade.getSessions()`, step control via `cascade.acceptStep()`/`cascade.rejectStep()`, headless cascade creation via `ls.createCascade()`, agent preferences via `cascade.getPreferences()`, and system diagnostics via `cascade.getDiagnostics()`. Filesystem-based fallback is retained for environments where the SDK cannot initialize (e.g., running outside Antigravity IDE).
 2. **Independent window:** The VS Code API doesn't support truly detached OS windows. Should Phase 3 implement an Express-based local server to serve the UI in a system browser? Or is a full-width Webview panel sufficient?
 3. **Write operations:** Should the Control Center allow editing/deleting skills and rules directly, or should it remain read-only and defer modifications to the agent?
 4. **Multi-workspace:** When multiple workspaces are open, how should skills/agents/rules be scoped and displayed?
+
+### 10.2 SDK Integration Architecture (v0.2.0)
+
+| Component | Role | Source File |
+|---|---|---|
+| `sdkService.ts` | Singleton SDK initialization with `AntigravitySDK.init()`, availability check, error state | `src/services/sdkService.ts` |
+| `sdkMonitorService.ts` | Real-time event polling (2s interval) for step changes, session switches, new conversations | `src/services/sdkMonitorService.ts` |
+| `preferencesService.ts` | Read agent preferences (terminal policy, secure mode, sandbox) and system diagnostics | `src/services/preferencesService.ts` |
+| `modelCatalog.ts` | Model catalog with SDK `Models` enum mapping and numeric ID resolution | `src/services/modelCatalog.ts` |
+| `conversationProvider.ts` | SDK-first provider: `cascade.getSessions()` returns `ITrajectoryEntry[]` with native titles (from `summary`), step counts, and `workspaceUri` for project detection. Rename uses `ls.setTitle()` (native ConversationAnnotations). Send via `ls.sendMessage()`. Step control via `cascade.acceptStep()` etc. Filesystem fallback for all operations when SDK unavailable. | `src/providers/conversationProvider.ts` |
+
+#### SDK Data Flow
+
+```
+┌─────────────────────────────────────────────────┐
+│  Webview (HTML/CSS/JS)                          │
+│  ┌─────────────┐  ┌──────────────────────────┐  │
+│  │ Conversations│  │ Settings (SDK Status)    │  │
+│  │ + Step Ctrl  │  │ + Preferences            │  │
+│  │ + Focus Btn  │  │ + Diagnostics            │  │
+│  └──────┬──────┘  └────────────┬─────────────┘  │
+│         │ postMessage          │ postMessage     │
+│─────────┼──────────────────────┼─────────────────│
+│         ▼                      ▼                 │
+│  ┌──────────────────────────────────────────────┐│
+│  │          WebviewManager (msg router)         ││
+│  └────┬───────┬────────┬───────────────┬────────┘│
+│       │       │        │               │         │
+│       ▼       ▼        ▼               ▼         │
+│  sdkService  sdkMonitor  preferencesService      │
+│  (init)      (poll 2s)   (read prefs/diag)       │
+│       │       │                                  │
+│       ▼       ▼                                  │
+│  ┌──────────────────┐  ┌────────────────────────┐│
+│  │ AntigravitySDK   │  │ conversationProvider   ││
+│  │ (cascade, ls)    │  │ (SDK + filesystem)     ││
+│  └──────────────────┘  └────────────────────────┘│
+└─────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -394,4 +434,8 @@ panel.webview.onDidReceiveMessage(message => {
 | **KI** | Knowledge Item — curated context stored in the Antigravity brain |
 | **Brain** | Antigravity's local data directory (`~/.gemini/antigravity-ide/brain/`) |
 | **SKILL.md** | Markdown file defining an agent skill's instructions and metadata |
-| **antigravity-sdk** | Community TypeScript SDK for Antigravity IDE extension development |
+| **antigravity-sdk** | Official TypeScript SDK for Antigravity IDE extension development |
+| **Cascade** | An Antigravity conversation/chat session (equivalent to "Convo" in the UI) |
+| **LSBridge** | Language Server bridge — SDK's low-level protocol for headless cascade management |
+| **Step Control** | SDK methods to accept/reject code edits and terminal commands during agent execution |
+| **SDKMonitorService** | Polling-based event monitor that detects session changes, new steps, and state updates |
