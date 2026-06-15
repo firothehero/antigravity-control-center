@@ -1,9 +1,9 @@
 # Antigravity Control Center — Product Requirements Document (PRD)
 
-> **Version:** 2.0.0  
+> **Version:** 2.1.0  
 > **Author:** TENN.ai & @firothehero
-> **Date:** 2026-06-15  
-> **Status:** Approved — Antigravity SDK Integration Complete  
+> **Date:** 2026-06-16  
+> **Status:** Approved — ConnectRPC Integration & Cross-Workspace Support  
 > **Repository:** `antigravity-control-center`
 
 ---
@@ -94,9 +94,11 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 | **Native Antigravity Chat Timeline** | P0 | Render full chat timeline in Column 3 using the **exact same** Antigravity color-coded message bubbles, tool call accordions, and code blocks. No independent custom UI — must match Antigravity natively. |
 | **Native Antigravity Input Bar** | P0 | Bottom input panel using the exact Antigravity-style input: rounded textarea, `[+] ModelName ▼` model selector pill, microphone icon, and Send button. Enter sends, Shift+Enter creates newline. |
 | **Native Model Selector** | P0 | Model dropdown shows the **exact same models** as Antigravity's own chat: Gemini 3.5 Flash (M/H/L), Gemini 3.1 Pro (L/H), Claude Sonnet/Opus 4.6 (Thinking), GPT-OSS 120B (Medium). Delivered via `request:modelCatalog` message protocol. Backend sends `{id, label, quality, category}` and webview normalizes to `{displayName, speed}` for rendering. Dropdown background uses `--color-surface-elevated` for solid, non-transparent appearance. |
-| **Real-time Streaming** | P0 | **Dual-mode monitoring**: Filesystem `ConversationWatcher` (`fs.watch` on `transcript.jsonl`) is **always** active for step content delivery. When SDK is available, `SDKMonitorService` additionally provides session-level events (active session changed, new conversations). The filesystem watcher provides actual step content (newSteps array) while SDK monitor provides notifications without content. Both run in parallel for comprehensive coverage. Streaming indicator bar shows "Agent is responding…" with pulsing dot. |
+| **Real-time Streaming** | P0 | **Dual-mode monitoring**: Filesystem `ConversationWatcher` (`fs.watch` on `transcript.jsonl`) is **always** active for step content delivery. When SDK is available, `SDKMonitorService` additionally provides session-level events (active session changed, new conversations). **Title sync polling** (10s interval) detects title changes from the IDE and pushes incremental `data:titleUpdates` to the webview. The filesystem watcher provides actual step content (newSteps array) while SDK monitor provides notifications without content. All three run in parallel for comprehensive coverage. Streaming indicator bar shows "Agent is responding…" with pulsing dot. |
 | **Parallel Multi-Chat Monitoring** | P0 | User can switch between any open conversation while the watcher continues monitoring all previously-opened chats simultaneously. New steps from any watched conversation update that conversation's chat view in real-time. |
-| **Conversation Renaming** | P0 | Rename button (pencil icon) opens a custom modal. 4-strategy cascade: (1) `integration.titles.rename()` — **primary**: renderer-side title proxy that writes to a JSON data file the IDE's conversation list reads (requires `enableTitleProxy()` + `installSeamless()` at SDK init), (2) `ls.setTitle()` — direct LS bridge rename, (3) `ls.updateAnnotations()` — annotation fallback, (4) `title_override.txt` filesystem cache (always written). Title priority: override file → SDK title → first USER_INPUT. Right panel header and left list both update immediately on rename. |
+| **Conversation Renaming** | P0 | Rename button (pencil icon) opens a custom modal. **ConnectRPC-based rename pipeline**: (1) `ls.setTitle()` via ConnectRPC with macOS port probing (`lsof -anP` → probe each port with `GetUserStatus` to identify the ConnectRPC port vs LSP/HTTPS ports), (2) `ls.updateAnnotations()` as RPC fallback, (3) `title_override.txt` filesystem cache (always written). **CSRF handling**: Uses `--csrf_token` (ConnectRPC) not `--extension_server_csrf_token` (IPC-only). Auto-rediscovery on 403 errors. Title priority: override file → SDK title → first USER_INPUT. Right panel header and left list both update immediately on rename. |
+| **Reverse Title Sync (IDE → ACC)** | P0 | 10-second polling timer (`_pollTitleChanges`) in WebviewManager compares fetched conversation titles against a cache. When a title changes in the IDE (e.g., user renames via Antigravity's native UI), sends incremental `data:titleUpdates` message to webview. Webview applies updates without full re-render. |
+| **Cross-Workspace Project Detection** | P0 | `detectProject()` uses a 3-strategy approach: (1) Parse `user_information` / `ADDITIONAL_METADATA` blocks in transcript content for workspace URIs (regex matches `/Users/firo/tenn/<repo> -> /Users/firo/tenn/` patterns), (2) Parse tool_call arguments (Cwd, AbsolutePath, TargetFile, SearchPath, DirectoryPath) for workspace paths, (3) Fallback to current workspace name. Strategy 1 is most reliable for cross-workspace conversations. |
 | **Send Message** | P0 | Input bar submits to `request:sendMessage` which appends a `USER_EXPLICIT / USER_INPUT` step to `transcript.jsonl`. The active Antigravity agent picks this up and responds — visible via real-time watcher. |
 | **Conversation Details** | P1 | Show metadata: step count, user messages count, tool call count, project badge |
 | **Export Conversation** | P1 | Export as Markdown, JSON, or HTML |
@@ -391,7 +393,7 @@ panel.webview.onDidReceiveMessage(message => {
 | `sdkMonitorService.ts` | Real-time event polling (2s interval) for step changes, session switches, new conversations | `src/services/sdkMonitorService.ts` |
 | `preferencesService.ts` | Read agent preferences (terminal policy, secure mode, sandbox) and system diagnostics | `src/services/preferencesService.ts` |
 | `modelCatalog.ts` | Model catalog with SDK `Models` enum mapping and numeric ID resolution | `src/services/modelCatalog.ts` |
-| `conversationProvider.ts` | SDK-first provider: `cascade.getSessions()` returns `ITrajectoryEntry[]` with native titles (from `summary`), step counts, and `workspaceUri` for project detection. Rename uses `ls.setTitle()` (native ConversationAnnotations). Send via `ls.sendMessage()`. Step control via `cascade.acceptStep()` etc. Filesystem fallback for all operations when SDK unavailable. | `src/providers/conversationProvider.ts` |
+| `conversationProvider.ts` | SDK-first provider: `cascade.getSessions()` returns `ITrajectoryEntry[]` with native titles (from `summary`), step counts, and `workspaceUri` for project detection. Rename uses `ls.setTitle()` via ConnectRPC with macOS port probing (lsof → probe → identify ConnectRPC port). Cross-workspace project detection parses `user_information` metadata in transcripts. `_discoverLSConnection()` finds the LS process, extracts `--csrf_token`, probes candidate ports with `_probePort()`. Filesystem fallback for all operations when SDK unavailable. | `src/providers/conversationProvider.ts` |
 
 #### SDK Data Flow
 
@@ -439,3 +441,6 @@ panel.webview.onDidReceiveMessage(message => {
 | **LSBridge** | Language Server bridge — SDK's low-level protocol for headless cascade management |
 | **Step Control** | SDK methods to accept/reject code edits and terminal commands during agent execution |
 | **SDKMonitorService** | Polling-based event monitor that detects session changes, new steps, and state updates |
+| **ConnectRPC** | The RPC protocol used by the LS for operations like `UpdateConversationAnnotations`. Served on dynamically assigned ports, distinct from the `extension_server_port` (IPC only). |
+| **Title Sync Polling** | 10-second interval timer that re-fetches conversation titles and detects IDE-side renames, pushing incremental `data:titleUpdates` to the webview |
+| **Port Probing** | Discovery mechanism that tests candidate LS ports with `GetUserStatus` POST to identify which port serves ConnectRPC (HTTP 200) vs LSP (HTTP 400) vs HTTPS (connection error) |

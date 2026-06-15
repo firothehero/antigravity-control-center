@@ -8211,41 +8211,47 @@ function getSDKInitError() {
 
 // src/providers/conversationProvider.ts
 function detectProject(steps, id) {
-  for (const step of steps) {
+  const checkSteps = steps.slice(0, 10);
+  for (const step of checkSteps) {
+    if (step.content && (step.type === "USER_INPUT" || step.source === "USER_EXPLICIT")) {
+      const content = step.content;
+      const wsMatch = content.match(/\/Users\/firo\/tenn\/([a-zA-Z0-9_-]+)\s*->\s*\/Users\/firo\/tenn/);
+      if (wsMatch) {
+        return wsMatch[1];
+      }
+      const pathMatch = content.match(/active workspaces[\s\S]{0,500}\/Users\/firo\/tenn\/([a-zA-Z0-9_-]+)/);
+      if (pathMatch) {
+        return pathMatch[1];
+      }
+      const corpusMatch = content.match(/CorpusName[^\n]*\/Users\/firo\/tenn\/([a-zA-Z0-9_-]+)/);
+      if (corpusMatch) {
+        return corpusMatch[1];
+      }
+    }
+  }
+  for (const step of checkSteps) {
     if (step.tool_calls) {
       for (const tc of step.tool_calls) {
         if (tc.arguments) {
-          if (tc.arguments.Cwd && typeof tc.arguments.Cwd === "string") {
-            const cwd = tc.arguments.Cwd;
-            if (cwd.includes("/tenn/")) {
-              const segments = cwd.split("/");
+          const paths = [
+            tc.arguments.Cwd,
+            tc.arguments.AbsolutePath,
+            tc.arguments.TargetFile,
+            tc.arguments.SearchPath,
+            tc.arguments.DirectoryPath
+          ].filter((p) => typeof p === "string");
+          for (const p of paths) {
+            if (p.includes("/tenn/")) {
+              const segments = p.split("/");
               const tennIdx = segments.indexOf("tenn");
               if (tennIdx !== -1 && segments[tennIdx + 1]) {
                 return segments[tennIdx + 1];
               }
             }
-            const parts = cwd.split("/");
-            return parts[parts.length - 1];
-          }
-          if (tc.arguments.AbsolutePath && typeof tc.arguments.AbsolutePath === "string") {
-            const file = tc.arguments.AbsolutePath;
-            if (file.includes("/firo/")) {
-              const segments = file.split("/");
+            if (p.includes("/firo/")) {
+              const segments = p.split("/");
               const firoIdx = segments.indexOf("firo");
-              if (firoIdx !== -1 && segments[firoIdx + 1] && segments[firoIdx + 1] !== "Desktop") {
-                if (segments[firoIdx + 1] === "tenn" && segments[firoIdx + 2]) {
-                  return segments[firoIdx + 2];
-                }
-                return segments[firoIdx + 1];
-              }
-            }
-          }
-          if (tc.arguments.TargetFile && typeof tc.arguments.TargetFile === "string") {
-            const file = tc.arguments.TargetFile;
-            if (file.includes("/firo/")) {
-              const segments = file.split("/");
-              const firoIdx = segments.indexOf("firo");
-              if (firoIdx !== -1 && segments[firoIdx + 1] && segments[firoIdx + 1] !== "Desktop") {
+              if (firoIdx !== -1 && segments[firoIdx + 1] && segments[firoIdx + 1] !== "Desktop" && segments[firoIdx + 1] !== ".gemini") {
                 if (segments[firoIdx + 1] === "tenn" && segments[firoIdx + 2]) {
                   return segments[firoIdx + 2];
                 }
@@ -8339,7 +8345,13 @@ async function _getConversationsFromSDK() {
     let title = raw.summary || raw.title || "";
     const stepCount = raw.lastStepIndex || raw.stepCount || 0;
     const lastMod = raw.lastModifiedTime || (/* @__PURE__ */ new Date()).toISOString();
-    const workspaceRaw = raw.workspaceFolderUri || raw.workspaceUri || raw.workspaceFolders || raw.workingDirectory || raw.repoName || "";
+    let workspaceRaw = raw.workspaceFolderUri || raw.workspaceUri || raw.workingDirectory || raw.repoName || "";
+    if (!workspaceRaw && Array.isArray(raw.workspaces) && raw.workspaces.length > 0) {
+      workspaceRaw = raw.workspaces[0].workspaceFolderAbsoluteUri || "";
+    }
+    if (!workspaceRaw && raw.trajectoryMetadata?.workspaces?.[0]) {
+      workspaceRaw = raw.trajectoryMetadata.workspaces[0].workspaceFolderAbsoluteUri || "";
+    }
     const project = projectFromWorkspaceUri(
       typeof workspaceRaw === "string" ? workspaceRaw : ""
     );
@@ -9529,6 +9541,10 @@ var WebviewManager = class {
   _legacyWatcher = null;
   /** Track which conversation IDs are actively watched (legacy mode) */
   _watchedConversations = /* @__PURE__ */ new Set();
+  /** Periodic title sync timer (IDE → ACC reverse sync) */
+  _titleSyncTimer = null;
+  /** Title cache for change detection */
+  _titleCache = /* @__PURE__ */ new Map();
   reveal() {
     this._panel.reveal(vscode5.ViewColumn.One);
   }
@@ -9573,6 +9589,34 @@ var WebviewManager = class {
       });
       this._sdkMonitor.start();
       console.log("[ACC] SDK EventMonitor started for session-level events");
+    }
+    this._titleSyncTimer = setInterval(() => this._pollTitleChanges(), 1e4);
+    console.log("[ACC] Title sync polling started (10s interval)");
+  }
+  /**
+   * Poll for title changes from the SDK/LS.
+   * Compares fetched titles against cached ones and pushes
+   * incremental updates to the webview.
+   */
+  async _pollTitleChanges() {
+    try {
+      const conversations = await getConversations();
+      const updates = [];
+      for (const conv of conversations) {
+        const cached = this._titleCache.get(conv.id);
+        if (cached !== void 0 && cached !== conv.title) {
+          updates.push({ id: conv.id, title: conv.title, project: conv.project });
+        }
+        this._titleCache.set(conv.id, conv.title);
+      }
+      if (updates.length > 0) {
+        console.log(`[ACC] Title sync: ${updates.length} title(s) changed`);
+        this._postMessage({
+          type: "data:titleUpdates",
+          payload: updates
+        });
+      }
+    } catch (err) {
     }
   }
   // ── Message Handler ────────────────────────────────────────────────────────
@@ -9852,6 +9896,10 @@ var WebviewManager = class {
     this._panel.webview.postMessage(message);
   }
   dispose() {
+    if (this._titleSyncTimer) {
+      clearInterval(this._titleSyncTimer);
+      this._titleSyncTimer = null;
+    }
     if (this._sdkMonitor) {
       this._sdkMonitor.dispose();
     }

@@ -159,7 +159,25 @@
         updateStatusText(`Loaded ${sortedConvs.length} conversations.`);
         updateBadge('conversations', sortedConvs.length);
         break;
-        
+
+      // Incremental title updates from reverse sync (IDE → ACC)
+      case 'data:titleUpdates': {
+        const updates = message.payload;
+        if (state.moduleData.conversations && updates.length > 0) {
+          for (const upd of updates) {
+            const conv = state.moduleData.conversations.find(c => c.id === upd.id);
+            if (conv) {
+              conv.title = upd.title;
+              if (upd.project) conv.project = upd.project;
+            }
+          }
+          saveState();
+          if (state.currentModule === 'conversations') {
+            filterAndRenderSubList('conversations', state.moduleData.conversations);
+          }
+        }
+        break;
+      }
       case 'data:conversationDetail':
         state.selectedItemData = message.payload;
         saveState();

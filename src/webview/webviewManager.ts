@@ -46,6 +46,11 @@ export class WebviewManager {
   /** Track which conversation IDs are actively watched (legacy mode) */
   private _watchedConversations: Set<string> = new Set();
 
+  /** Periodic title sync timer (IDE → ACC reverse sync) */
+  private _titleSyncTimer: ReturnType<typeof setInterval> | null = null;
+  /** Title cache for change detection */
+  private _titleCache: Map<string, string> = new Map();
+
   constructor(private readonly _context: vscode.ExtensionContext) {
     const extensionUri = _context.extensionUri;
 
@@ -143,6 +148,41 @@ export class WebviewManager {
       });
       this._sdkMonitor.start();
       console.log('[ACC] SDK EventMonitor started for session-level events');
+    }
+
+    // Title sync polling — detects title changes made in the IDE
+    // (e.g., when user renames a conversation directly in Antigravity)
+    this._titleSyncTimer = setInterval(() => this._pollTitleChanges(), 10_000);
+    console.log('[ACC] Title sync polling started (10s interval)');
+  }
+
+  /**
+   * Poll for title changes from the SDK/LS.
+   * Compares fetched titles against cached ones and pushes
+   * incremental updates to the webview.
+   */
+  private async _pollTitleChanges(): Promise<void> {
+    try {
+      const conversations = await getConversations();
+      const updates: { id: string; title: string; project?: string }[] = [];
+
+      for (const conv of conversations) {
+        const cached = this._titleCache.get(conv.id);
+        if (cached !== undefined && cached !== conv.title) {
+          updates.push({ id: conv.id, title: conv.title, project: conv.project });
+        }
+        this._titleCache.set(conv.id, conv.title);
+      }
+
+      if (updates.length > 0) {
+        console.log(`[ACC] Title sync: ${updates.length} title(s) changed`);
+        this._postMessage({
+          type: 'data:titleUpdates',
+          payload: updates,
+        } as any);
+      }
+    } catch (err: any) {
+      // Silent — polling failure shouldn't spam logs
     }
   }
 
@@ -477,6 +517,10 @@ export class WebviewManager {
 
   public dispose() {
     // Clean up monitoring
+    if (this._titleSyncTimer) {
+      clearInterval(this._titleSyncTimer);
+      this._titleSyncTimer = null;
+    }
     if (this._sdkMonitor) {
       this._sdkMonitor.dispose();
     }

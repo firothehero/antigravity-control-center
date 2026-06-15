@@ -231,13 +231,24 @@ async function _getConversationsFromSDK(): Promise<Conversation[]> {
     const lastMod = raw.lastModifiedTime || new Date().toISOString();
 
     // Extract workspace/project info from raw fields
-    // Try multiple field names since we don't know the exact schema
-    const workspaceRaw = raw.workspaceFolderUri
+    // The LS has multiple formats depending on the API:
+    // - getDiagnostics: workspaceFolderUri (string)
+    // - GetAllCascadeTrajectories: workspaces[{workspaceFolderAbsoluteUri}]
+    let workspaceRaw = raw.workspaceFolderUri
       || raw.workspaceUri
-      || raw.workspaceFolders
       || raw.workingDirectory
       || raw.repoName
       || '';
+
+    // Check 'workspaces' array (from GetAllCascadeTrajectories)
+    if (!workspaceRaw && Array.isArray(raw.workspaces) && raw.workspaces.length > 0) {
+      workspaceRaw = raw.workspaces[0].workspaceFolderAbsoluteUri || '';
+    }
+    // Check trajectoryMetadata.workspaces
+    if (!workspaceRaw && raw.trajectoryMetadata?.workspaces?.[0]) {
+      workspaceRaw = raw.trajectoryMetadata.workspaces[0].workspaceFolderAbsoluteUri || '';
+    }
+
     const project = projectFromWorkspaceUri(
       typeof workspaceRaw === 'string' ? workspaceRaw : ''
     );
