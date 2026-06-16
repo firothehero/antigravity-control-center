@@ -22,6 +22,10 @@ export function getBrainDirectory(): string {
   return path.join(getDataDirectory(), 'brain');
 }
 
+export function getConversationsDirectory(): string {
+  return path.join(getDataDirectory(), 'conversations');
+}
+
 export function getMcpDirectory(): string {
   return path.join(getDataDirectory(), 'mcp');
 }

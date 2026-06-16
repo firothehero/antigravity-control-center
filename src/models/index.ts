@@ -117,6 +117,7 @@ export type MessageType =
   | 'request:unwatchConversation'
   | 'request:modelCatalog'
   | 'request:renameConversation'
+  | 'request:deleteConversation'
   | 'request:mcpServers'
   | 'request:mcpToolDetail'
   | 'request:skills'

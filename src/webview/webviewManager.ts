@@ -7,6 +7,7 @@ import {
   getConversationDetail,
   sendConversationMessage,
   renameConversation,
+  deleteConversation,
   createConversation,
   focusConversation,
   acceptStep,
@@ -348,6 +349,19 @@ export class WebviewManager {
             type: 'action:renameSuccess',
             payload: { id, newTitle },
           } as any);
+          break;
+        }
+
+        // ── Delete Conversation ──────────────────────────────────────────
+        case 'request:deleteConversation': {
+          const { id: deleteId } = message.payload;
+          try {
+            await deleteConversation(deleteId);
+            const updatedList = await getConversations();
+            this._postMessage({ type: 'data:conversations', payload: updatedList });
+          } catch (err: any) {
+            this._postMessage({ type: 'error:conversations', payload: `Failed to delete: ${err?.message}` });
+          }
           break;
         }
 

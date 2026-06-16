@@ -1,9 +1,9 @@
 # Antigravity Control Center — Product Requirements Document (PRD)
 
-> **Version:** 2.1.0  
+> **Version:** 2.4.0  
 > **Author:** TENN.ai & @firothehero
 > **Date:** 2026-06-16  
-> **Status:** Approved — ConnectRPC Integration & Cross-Workspace Support  
+> **Status:** Approved — Full Conversation Discovery, Inline Actions & Cross-Workspace Multi-LS Broadcast Rename  
 > **Repository:** `antigravity-control-center`
 
 ---
@@ -89,20 +89,22 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 
 | Feature | Priority | Description |
 |---|---|---|
-| **List Conversations (Convos)** | P0 | Display all conversations in Column 2 from `~/.gemini/antigravity-ide/brain/` in reverse chronological order (newest first). Conversations are called "Convos" in Antigravity — display them with the same naming. Auto-select the top conversation by default. |
+| **List Conversations (Convos)** | P0 | Display **ALL** conversations from `~/.gemini/antigravity-ide/conversations/` (`.db` SQLite + `.pb` protobuf files) in reverse chronological order (newest first). Conversations are called "Convos" in Antigravity — display them with the same naming. Auto-select the top conversation by default. **Discovery pipeline**: Phase 1 reads `.db` files via `sql.js` (WebAssembly SQLite) to extract step counts from the `steps` table and workspace URIs from `trajectory_metadata_blob`. Phase 2 discovers `.pb` files and pairs them with brain directory data for timestamps and step counts (from `.system_generated/steps/`). The `conversations/` directory is the authoritative source — it contains all conversations across all workspaces. |
 | **Search & Project Filter** | P0 | Search conversations by title; filter by Project/Repository name utilizing a custom dropdown select in the Column 2 header. |
 | **Native Antigravity Chat Timeline** | P0 | Render full chat timeline in Column 3 using the **exact same** Antigravity color-coded message bubbles, tool call accordions, and code blocks. No independent custom UI — must match Antigravity natively. |
 | **Native Antigravity Input Bar** | P0 | Bottom input panel using the exact Antigravity-style input: rounded textarea, `[+] ModelName ▼` model selector pill, microphone icon, and Send button. Enter sends, Shift+Enter creates newline. |
 | **Native Model Selector** | P0 | Model dropdown shows the **exact same models** as Antigravity's own chat: Gemini 3.5 Flash (M/H/L), Gemini 3.1 Pro (L/H), Claude Sonnet/Opus 4.6 (Thinking), GPT-OSS 120B (Medium). Delivered via `request:modelCatalog` message protocol. Backend sends `{id, label, quality, category}` and webview normalizes to `{displayName, speed}` for rendering. Dropdown background uses `--color-surface-elevated` for solid, non-transparent appearance. |
 | **Real-time Streaming** | P0 | **Dual-mode monitoring**: Filesystem `ConversationWatcher` (`fs.watch` on `transcript.jsonl`) is **always** active for step content delivery. When SDK is available, `SDKMonitorService` additionally provides session-level events (active session changed, new conversations). **Title sync polling** (10s interval) detects title changes from the IDE and pushes incremental `data:titleUpdates` to the webview. The filesystem watcher provides actual step content (newSteps array) while SDK monitor provides notifications without content. All three run in parallel for comprehensive coverage. Streaming indicator bar shows "Agent is responding…" with pulsing dot. |
 | **Parallel Multi-Chat Monitoring** | P0 | User can switch between any open conversation while the watcher continues monitoring all previously-opened chats simultaneously. New steps from any watched conversation update that conversation's chat view in real-time. |
-| **Conversation Renaming** | P0 | Rename button (pencil icon) opens a custom modal. **ConnectRPC-based rename pipeline**: (1) `ls.setTitle()` via ConnectRPC with macOS port probing (`lsof -anP` → probe each port with `GetUserStatus` to identify the ConnectRPC port vs LSP/HTTPS ports), (2) `ls.updateAnnotations()` as RPC fallback, (3) `title_override.txt` filesystem cache (always written). **CSRF handling**: Uses `--csrf_token` (ConnectRPC) not `--extension_server_csrf_token` (IPC-only). Auto-rediscovery on 403 errors. Title priority: override file → SDK title → first USER_INPUT. Right panel header and left list both update immediately on rename. |
+| **Conversation Renaming** | P0 | Rename via pencil icon on the detail header OR inline Edit button on each list row. **Multi-LS broadcast rename pipeline**: (1) `_directConnectRPCRename()` discovers ALL running LS instances via `_discoverAllLSConnections()` and sends `UpdateConversationAnnotations` to **every** one in parallel — the owning LS applies the rename, others ignore it (harmless). This is the only strategy that works cross-workspace. (2) SDK `ls.setTitle()` as supplementary for current-workspace LS state consistency. (3) `title_override.txt` filesystem cache (always written as backup). **CSRF handling**: Uses `--csrf_token` (ConnectRPC) not `--extension_server_csrf_token` (IPC-only). Title priority: override file → SDK title → first USER_INPUT. Both panels update immediately. |
+| **Inline Edit/Delete Buttons** | P0 | Each conversation row in Column 2 shows pencil (rename) and trash (delete) icon buttons on hover. Edit triggers the rename modal. Delete triggers a confirmation modal with the conversation title displayed. Both use `event.stopPropagation()` to prevent row click-through. CSS slide-in animation on hover. |
 | **Reverse Title Sync (IDE → ACC)** | P0 | 10-second polling timer (`_pollTitleChanges`) in WebviewManager compares fetched conversation titles against a cache. When a title changes in the IDE (e.g., user renames via Antigravity's native UI), sends incremental `data:titleUpdates` message to webview. Webview applies updates without full re-render. |
 | **Cross-Workspace Project Detection** | P0 | `detectProject()` uses a 3-strategy approach: (1) Parse `user_information` / `ADDITIONAL_METADATA` blocks in transcript content for workspace URIs (regex matches `/Users/firo/tenn/<repo> -> /Users/firo/tenn/` patterns), (2) Parse tool_call arguments (Cwd, AbsolutePath, TargetFile, SearchPath, DirectoryPath) for workspace paths, (3) Fallback to current workspace name. Strategy 1 is most reliable for cross-workspace conversations. |
 | **Send Message** | P0 | Input bar submits to `request:sendMessage` which appends a `USER_EXPLICIT / USER_INPUT` step to `transcript.jsonl`. The active Antigravity agent picks this up and responds — visible via real-time watcher. |
 | **Conversation Details** | P1 | Show metadata: step count, user messages count, tool call count, project badge |
 | **Export Conversation** | P1 | Export as Markdown, JSON, or HTML |
-| **Delete Conversation** | P2 | Remove conversation data with confirmation dialog |
+| **Delete Conversation** | P0 | ✅ **IMPLEMENTED** — Inline trash icon on each list row opens a confirmation modal. On confirm, sends `request:deleteConversation` to the extension host which deletes the brain directory, .db, .db-shm, .db-wal, and .pb files. Optimistic UI removal from the list. Toast notification on success. |
+| **Viewability Filtering** | P0 | Conversations without transcripts, title overrides, or meaningful step data are automatically filtered from the list. Old .pb-only entries with 0 steps and generic "Conversation XXXX" titles are excluded to prevent errors when clicked. |
 | **Conversation Analytics** | P2 | Charts showing conversation frequency, avg duration, most-used tools |
 
 ### 3.3 Module: MCP Server Manager
@@ -280,7 +282,9 @@ A native Antigravity IDE extension providing a single-pane-of-glass dashboard th
 
 | Data Source | Location | Format | Access |
 |---|---|---|---|
-| Conversations | `~/.gemini/antigravity-ide/brain/<conv-id>/` | `transcript.jsonl`, markdown artifacts | `fs.readdir` + `fs.readFile` |
+| Conversations (SQLite) | `~/.gemini/antigravity-ide/conversations/<conv-id>.db` | SQLite 3.x database with `steps`, `trajectory_meta`, `trajectory_metadata_blob` tables | `sql.js` (WebAssembly) via `conversationDB.ts` |
+| Conversations (Protobuf) | `~/.gemini/antigravity-ide/conversations/<conv-id>.pb` | Binary protobuf (encrypted/serialized) | `fs.readdir` for discovery; `fs.stat` for timestamps |
+| Conversation Artifacts | `~/.gemini/antigravity-ide/brain/<conv-id>/` | `transcript.jsonl`, markdown artifacts, `.system_generated/steps/` | `fs.readdir` + `fs.readFile` |
 | MCP Servers | `~/.gemini/antigravity-ide/mcp/<serverName>/` | JSON tool schemas, `instructions.md` | `fs.readdir` + `fs.readFile` |
 | Skills (Workspace) | `<workspace>/.agents/skills/<name>/SKILL.md` | Markdown with YAML frontmatter | `fs.readdir` + `fs.readFile` |
 | Skills (Global) | `~/.gemini/config/plugins/<plugin>/skills/` | Markdown with YAML frontmatter | `fs.readdir` + `fs.readFile` |
@@ -383,7 +387,7 @@ panel.webview.onDidReceiveMessage(message => {
 1. ~~**antigravity-sdk adoption:**~~ ✅ **RESOLVED** — Adopted `antigravity-sdk` as the primary integration layer in v0.2.0. The SDK provides session listing via `cascade.getSessions()`, step control via `cascade.acceptStep()`/`cascade.rejectStep()`, headless cascade creation via `ls.createCascade()`, agent preferences via `cascade.getPreferences()`, and system diagnostics via `cascade.getDiagnostics()`. Filesystem-based fallback is retained for environments where the SDK cannot initialize (e.g., running outside Antigravity IDE).
 2. **Independent window:** The VS Code API doesn't support truly detached OS windows. Should Phase 3 implement an Express-based local server to serve the UI in a system browser? Or is a full-width Webview panel sufficient?
 3. **Write operations:** Should the Control Center allow editing/deleting skills and rules directly, or should it remain read-only and defer modifications to the agent?
-4. **Multi-workspace:** When multiple workspaces are open, how should skills/agents/rules be scoped and displayed?
+4. ~~**Multi-workspace:**~~ ✅ **RESOLVED** — The ACC now scans `~/.gemini/antigravity-ide/conversations/` which contains `.db` and `.pb` files for ALL conversations across ALL workspaces. For `.db` files, workspace URIs are extracted from `trajectory_metadata_blob` (protobuf blob containing `file:///` URIs). The Project filter dropdown shows all unique workspace names. See conversation discovery pipeline in §3.2.
 
 ### 10.2 SDK Integration Architecture (v0.2.0)
 
@@ -392,8 +396,8 @@ panel.webview.onDidReceiveMessage(message => {
 | `sdkService.ts` | Singleton SDK initialization with `AntigravitySDK.init()`, availability check, error state | `src/services/sdkService.ts` |
 | `sdkMonitorService.ts` | Real-time event polling (2s interval) for step changes, session switches, new conversations | `src/services/sdkMonitorService.ts` |
 | `preferencesService.ts` | Read agent preferences (terminal policy, secure mode, sandbox) and system diagnostics | `src/services/preferencesService.ts` |
-| `modelCatalog.ts` | Model catalog with SDK `Models` enum mapping and numeric ID resolution | `src/services/modelCatalog.ts` |
-| `conversationProvider.ts` | SDK-first provider: `cascade.getSessions()` returns `ITrajectoryEntry[]` with native titles (from `summary`), step counts, and `workspaceUri` for project detection. Rename uses `ls.setTitle()` via ConnectRPC with macOS port probing (lsof → probe → identify ConnectRPC port). Cross-workspace project detection parses `user_information` metadata in transcripts. `_discoverLSConnection()` finds the LS process, extracts `--csrf_token`, probes candidate ports with `_probePort()`. Filesystem fallback for all operations when SDK unavailable. | `src/providers/conversationProvider.ts` |
+| `conversationDB.ts` | Reads conversation `.db` files (SQLite) via `sql.js` (WebAssembly). Extracts step counts from `steps` table and workspace URIs from `trajectory_metadata_blob` (decoded protobuf → regex `file:///` URI extraction). Batch-scans conversations directory with 10-file parallel I/O. | `src/services/conversationDB.ts` |
+| `conversationProvider.ts` | **2-phase discovery pipeline**: Phase 1 reads `.db` files via `conversationDB.ts` for step counts and workspace URIs. Phase 2 discovers `.pb` files and pairs with brain directory data. SDK enrichment merges titles from `getDiagnostics().recentTrajectories`. **Cross-workspace rename** uses `_discoverAllLSConnections()` to find ALL running LS instances, then `_directConnectRPCRename()` broadcasts `UpdateConversationAnnotations` to every LS in parallel — only the owning LS applies the rename. SDK `ls.setTitle()` is supplementary. Cross-workspace project detection from SQLite workspace URIs + transcript `user_information` metadata. | `src/providers/conversationProvider.ts` |
 
 #### SDK Data Flow
 

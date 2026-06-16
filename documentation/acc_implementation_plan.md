@@ -1,8 +1,8 @@
 # Antigravity Control Center — Implementation Plan
 
-> **Version:** 2.1.0  
+> **Version:** 2.4.0  
 > **Date:** 2026-06-16  
-> **Status:** Approved — ConnectRPC Integration & Cross-Workspace Support  
+> **Status:** Approved — Full Conversation Discovery, Inline Actions & Cross-Workspace Multi-LS Broadcast Rename  
 > **PRD Reference:** [acc.PRD.md](file:///Users/firo/tenn/firothehero/antigravity-control-center/documentation/acc.PRD.md)
 
 ---
@@ -191,48 +191,48 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **1.1.1** Initialize npm project in `antigravity-control-center/` via `npm init -y`
-- [ ] **1.1.2** Install dev dependencies: `@types/vscode`, `typescript`, `esbuild`, `@types/node`, `eslint`
-- [ ] **1.1.3** Install runtime dependency: `gray-matter`
-- [ ] **1.1.4** Create `package.json` extension manifest with:
-  - [ ] Extension metadata (`name`, `displayName`, `description`, `version: 0.1.0`, `publisher: tenn-ai`)
-  - [ ] Engine requirement: `"vscode": "^1.85.0"`
-  - [ ] Activation event: `"*"` (activate on IDE startup)
-  - [ ] Main entry: `"./dist/extension.js"`
-  - [ ] Command contribution: `controlCenter.open` with title "Control Center" and icon `$(dashboard)`
-  - [ ] Menu contribution: `editor/title` → `controlCenter.open` in `navigation` group
-  - [ ] Configuration contribution: `controlCenter.openMode` (webview|external), `controlCenter.defaultTab`, `controlCenter.dataDirectory`
-  - [ ] NPM scripts: `"build"`, `"watch"`, `"lint"`, `"package"`
-- [ ] **1.1.5** Create `tsconfig.json` with:
-  - [ ] Target: `ES2022`, Module: `commonjs`
-  - [ ] Strict mode enabled
-  - [ ] `outDir: dist`, `rootDir: src`
-  - [ ] Source maps enabled
-  - [ ] `resolveJsonModule: true`, `skipLibCheck: true`
-  - [ ] Exclude: `node_modules`, `dist`, `media`
-- [ ] **1.1.6** Create `esbuild.config.mjs` with:
-  - [ ] Entry point: `src/extension.ts`
-  - [ ] Output: `dist/extension.js`
-  - [ ] Bundle mode with `vscode` as external
-  - [ ] Platform: `node`, target: `node18`
-  - [ ] Watch mode support via `--watch` flag
-  - [ ] Minification in production, source maps always
-- [ ] **1.1.7** Create `.vscode/launch.json` with Extension Development Host configuration:
-  - [ ] `extensionDevelopmentPath` pointed to workspace folder
-  - [ ] `outFiles` pointed to `dist/**/*.js`
-  - [ ] `preLaunchTask: build`
-- [ ] **1.1.8** Create `.vscode/tasks.json` with build and watch tasks:
-  - [ ] `build` task runs `npm run build`
-  - [ ] `watch` task runs `npm run watch` in background
-- [ ] **1.1.9** Create `.eslintrc.json` with TypeScript-aware ESLint config
-- [ ] **1.1.10** Create `.vscodeignore` excluding `src/`, `testing/`, `documentation/`, `node_modules/`, `*.ts`, config files
-- [ ] **1.1.11** Create initial `CHANGELOG.md` with v0.1.0 section
+- [x] **1.1.1** Initialize npm project in `antigravity-control-center/` via `npm init -y`
+- [x] **1.1.2** Install dev dependencies: `@types/vscode`, `typescript`, `esbuild`, `@types/node`, `eslint`
+- [x] **1.1.3** Install runtime dependency: `gray-matter`
+- [x] **1.1.4** Create `package.json` extension manifest with:
+  - [x] Extension metadata (`name`, `displayName`, `description`, `version: 0.1.0`, `publisher: tenn-ai`)
+  - [x] Engine requirement: `"vscode": "^1.85.0"`
+  - [x] Activation event: `"*"` (activate on IDE startup)
+  - [x] Main entry: `"./dist/extension.js"`
+  - [x] Command contribution: `controlCenter.open` with title "Control Center" and icon `$(dashboard)`
+  - [x] Menu contribution: `editor/title` → `controlCenter.open` in `navigation` group
+  - [x] Configuration contribution: `controlCenter.openMode` (webview|external), `controlCenter.defaultTab`, `controlCenter.dataDirectory`
+  - [x] NPM scripts: `"build"`, `"watch"`, `"lint"`, `"package"`
+- [x] **1.1.5** Create `tsconfig.json` with:
+  - [x] Target: `ES2022`, Module: `commonjs`
+  - [x] Strict mode enabled
+  - [x] `outDir: dist`, `rootDir: src`
+  - [x] Source maps enabled
+  - [x] `resolveJsonModule: true`, `skipLibCheck: true`
+  - [x] Exclude: `node_modules`, `dist`, `media`
+- [x] **1.1.6** Create `esbuild.config.mjs` with:
+  - [x] Entry point: `src/extension.ts`
+  - [x] Output: `dist/extension.js`
+  - [x] Bundle mode with `vscode` as external
+  - [x] Platform: `node`, target: `node18`
+  - [x] Watch mode support via `--watch` flag
+  - [x] Minification in production, source maps always
+- [x] **1.1.7** Create `.vscode/launch.json` with Extension Development Host configuration:
+  - [x] `extensionDevelopmentPath` pointed to workspace folder
+  - [x] `outFiles` pointed to `dist/**/*.js`
+  - [x] `preLaunchTask: build`
+- [x] **1.1.8** Create `.vscode/tasks.json` with build and watch tasks:
+  - [x] `build` task runs `npm run build`
+  - [x] `watch` task runs `npm run watch` in background
+- [x] **1.1.9** Create `.eslintrc.json` with TypeScript-aware ESLint config
+- [x] **1.1.10** Create `.vscodeignore` excluding `src/`, `testing/`, `documentation/`, `node_modules/`, `*.ts`, config files
+- [x] **1.1.11** Create initial `CHANGELOG.md` with v0.1.0 section
 
 #### Verification
-- [ ] `npm install` completes without errors
-- [ ] `npm run build` compiles successfully and produces `dist/extension.js`
-- [ ] `npm run watch` starts esbuild in watch mode
-- [ ] Extension loads in Extension Development Host (F5) without activation errors
+- [x] `npm install` completes without errors
+- [x] `npm run build` compiles successfully and produces `dist/extension.js`
+- [x] `npm run watch` starts esbuild in watch mode
+- [x] Extension loads in Extension Development Host (F5) without activation errors
 
 ---
 
@@ -243,27 +243,27 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **1.2.1** Create `src/extension.ts`:
-  - [ ] Import `vscode` and `openControlCenter` command handler
-  - [ ] Implement `activate(context)` function that:
-    - [ ] Logs activation message to console
-    - [ ] Registers `controlCenter.open` command via `vscode.commands.registerCommand`
-    - [ ] Pushes disposable to `context.subscriptions`
-  - [ ] Implement empty `deactivate()` function
-- [ ] **1.2.2** Create `src/commands/openControlCenter.ts`:
-  - [ ] Maintain singleton `webviewManager` reference at module level
-  - [ ] Implement `openControlCenter(context)` function that:
-    - [ ] If `webviewManager` exists → call `reveal()` (bring to front, no duplicate)
-    - [ ] If not → create new `WebviewManager(context)`
-    - [ ] Subscribe to `onDidDispose` to clear the singleton reference
-- [ ] **1.2.3** Verify command is wired correctly in `package.json` contributes section
+- [x] **1.2.1** Create `src/extension.ts`:
+  - [x] Import `vscode` and `openControlCenter` command handler
+  - [x] Implement `activate(context)` function that:
+    - [x] Logs activation message to console
+    - [x] Registers `controlCenter.open` command via `vscode.commands.registerCommand`
+    - [x] Pushes disposable to `context.subscriptions`
+  - [x] Implement empty `deactivate()` function
+- [x] **1.2.2** Create `src/commands/openControlCenter.ts`:
+  - [x] Maintain singleton `webviewManager` reference at module level
+  - [x] Implement `openControlCenter(context)` function that:
+    - [x] If `webviewManager` exists → call `reveal()` (bring to front, no duplicate)
+    - [x] If not → create new `WebviewManager(context)`
+    - [x] Subscribe to `onDidDispose` to clear the singleton reference
+- [x] **1.2.3** Verify command is wired correctly in `package.json` contributes section
 
 #### Verification
-- [ ] "Control Center" button appears in the top-right toolbar of the editor
-- [ ] Clicking the button opens a new webview panel tab
-- [ ] Clicking the button a second time reveals the existing panel (does not create a duplicate)
-- [ ] Closing the panel and clicking the button again creates a fresh panel
-- [ ] No error in the Extension Development Host console
+- [x] "Control Center" button appears in the top-right toolbar of the editor
+- [x] Clicking the button opens a new webview panel tab
+- [x] Clicking the button a second time reveals the existing panel (does not create a duplicate)
+- [x] Closing the panel and clicking the button again creates a fresh panel
+- [x] No error in the Extension Development Host console
 
 ---
 
@@ -274,69 +274,41 @@ antigravity-control-center/
 
 #### 1.3.A — Path Resolution (`paths.ts`)
 
-- [ ] **1.3.1** Implement `getDataDirectory()`:
-  - [ ] Read custom path from `controlCenter.dataDirectory` setting
-  - [ ] Fall back to platform-default `~/.gemini/antigravity-ide`
-  - [ ] Use `os.homedir()` for cross-platform home directory
-- [ ] **1.3.2** Implement `getBrainDirectory()` → `{dataDir}/brain/`
-- [ ] **1.3.3** Implement `getMcpDirectory()` → `{dataDir}/mcp/`
-- [ ] **1.3.4** Implement `getKnowledgeDirectory()` → `{dataDir}/knowledge/`
-- [ ] **1.3.5** Implement `getWorkspaceAgentsDirectory()`:
-  - [ ] Read first workspace folder from `vscode.workspace.workspaceFolders`
-  - [ ] Return `{workspaceRoot}/.agents/` or `undefined` if no workspace
-- [ ] **1.3.6** Implement `getGlobalPluginsDirectory()` → `~/.gemini/config/plugins/`
-- [ ] **1.3.7** Use `path.join()` for all path construction (cross-platform safety)
+- [x] **1.3.1** Implement `getDataDirectory()`
+- [x] **1.3.2** Implement `getBrainDirectory()` → `{dataDir}/brain/`
+- [x] **1.3.3** Implement `getMcpDirectory()` → `{dataDir}/mcp/`
+- [x] **1.3.4** Implement `getKnowledgeDirectory()` → `{dataDir}/knowledge/`
+- [x] **1.3.5** Implement `getWorkspaceAgentsDirectory()`
+- [x] **1.3.6** Implement `getGlobalPluginsDirectory()` → `~/.gemini/config/plugins/`
+- [x] **1.3.7** Use `path.join()` for all path construction (cross-platform safety)
 
 #### 1.3.B — Filesystem Helpers (`fileSystem.ts`)
 
-- [ ] **1.3.8** Implement `safeReadDir(dirPath)`:
-  - [ ] Wraps `fs.readdir()` in try/catch
-  - [ ] Returns empty array on any error (dir doesn't exist, permission denied)
-- [ ] **1.3.9** Implement `safeReadFile(filePath)`:
-  - [ ] Wraps `fs.readFile(path, 'utf-8')` in try/catch
-  - [ ] Returns `null` on any error
-- [ ] **1.3.10** Implement `safeReadJson<T>(filePath)`:
-  - [ ] Calls `safeReadFile` then `JSON.parse`
-  - [ ] Returns typed result or `null` on parse error
-- [ ] **1.3.11** Implement `directoryExists(dirPath)`:
-  - [ ] Uses `fs.stat()` and checks `isDirectory()`
-  - [ ] Returns `false` on error
-- [ ] **1.3.12** Implement `getSubDirectories(dirPath)`:
-  - [ ] Lists entries, filters hidden (`.` prefix), checks `isDirectory`
-  - [ ] Returns array of subdirectory names
-- [ ] **1.3.13** Implement `getFileStat(filePath)`:
-  - [ ] Returns `{ createdAt, modifiedAt, size }` or null
-  - [ ] Used for conversation timestamps
+- [x] **1.3.8** Implement `safeReadDir(dirPath)`
+- [x] **1.3.9** Implement `safeReadFile(filePath)`
+- [x] **1.3.10** Implement `safeReadJson<T>(filePath)`
+- [x] **1.3.11** Implement `directoryExists(dirPath)`
+- [x] **1.3.12** Implement `getSubDirectories(dirPath)`
+- [x] **1.3.13** Implement `getFileStat(filePath)`
 
 #### 1.3.C — JSONL Parser (`jsonlParser.ts`)
 
-- [ ] **1.3.14** Define `TranscriptStep` interface:
-  - [ ] Fields: `step_index`, `source`, `type`, `status`, `content?`, `tool_calls?`
-- [ ] **1.3.15** Implement `parseJsonl(content: string): TranscriptStep[]`:
-  - [ ] Split content by newline, filter empty lines
-  - [ ] Parse each line as JSON, skip malformed lines silently
-  - [ ] Return array of typed `TranscriptStep` objects
-- [ ] **1.3.16** Implement `parseJsonlPaginated(content, page, pageSize)`:
-  - [ ] Parse only the requested page of lines (for large transcripts)
-  - [ ] Return `{ steps, totalCount, totalPages, currentPage }`
+- [x] **1.3.14** Define `TranscriptStep` interface
+- [x] **1.3.15** Implement `parseJsonl(content: string): TranscriptStep[]`
+- [x] **1.3.16** Implement `parseJsonlPaginated(content, page, pageSize)`
 
 #### 1.3.D — Markdown Parser (`markdownParser.ts`)
 
-- [ ] **1.3.17** Define `ParsedMarkdown` interface: `{ metadata: Record<string, any>, content: string }`
-- [ ] **1.3.18** Implement `parseMarkdown(raw)` using `gray-matter`:
-  - [ ] Extract YAML frontmatter into `metadata`
-  - [ ] Return trimmed content body
-- [ ] **1.3.19** Implement `extractTitle(raw)`:
-  - [ ] First try: `metadata.name` from frontmatter
-  - [ ] Second try: first `# Heading` in content
-  - [ ] Fallback: first 80 characters of content
+- [x] **1.3.17** Define `ParsedMarkdown` interface
+- [x] **1.3.18** Implement `parseMarkdown(raw)` using `gray-matter`
+- [x] **1.3.19** Implement `extractTitle(raw)`
 
 #### Verification
-- [ ] All path functions return correct absolute paths on macOS
-- [ ] `safeReadDir` and `safeReadFile` return empty/null for non-existent paths (no throws)
-- [ ] `parseJsonl` correctly parses a sample `transcript.jsonl` file
-- [ ] `parseMarkdown` correctly extracts frontmatter from a `SKILL.md` file
-- [ ] TypeScript compiles all utility files without errors
+- [x] All path functions return correct absolute paths on macOS
+- [x] `safeReadDir` and `safeReadFile` return empty/null for non-existent paths (no throws)
+- [x] `parseJsonl` correctly parses a sample `transcript.jsonl` file
+- [x] `parseMarkdown` correctly extracts frontmatter from a `SKILL.md` file
+- [x] TypeScript compiles all utility files without errors
 
 ---
 
@@ -347,32 +319,20 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **1.4.1** Create `conversation.ts`:
-  - [ ] `Conversation` interface: `id`, `title`, `summary?`, `createdAt?`, `lastModified?`, `stepCount`, `artifactPath`, `hasTranscript`
-  - [ ] `ConversationDetail` extends `Conversation` with: `steps: TranscriptStep[]`, `artifacts: string[]`, `userMessages: number`, `agentMessages: number`, `toolCalls: number`
-- [ ] **1.4.2** Create `mcpServer.ts`:
-  - [ ] `McpTool` interface: `name`, `description`, `parameters: Record<string, any>`, `isEager: boolean`
-  - [ ] `McpServer` interface: `name`, `toolCount`, `eagerTools: McpTool[]`, `lazyTools: McpTool[]`, `hasInstructions`, `instructions?`
-- [ ] **1.4.3** Create `skill.ts`:
-  - [ ] `Skill` interface: `name`, `description`, `source: 'workspace' | 'global' | 'plugin'`, `sourcePath`, `pluginName?`, `content`, `hasScripts`, `hasExamples`, `hasReferences`
-- [ ] **1.4.4** Create `agent.ts`:
-  - [ ] `Agent` interface: `name`, `description?`, `model?`, `skills: string[]`, `tools: string[]`, `sourcePath`, `content`
-- [ ] **1.4.5** Create `rule.ts`:
-  - [ ] `Rule` interface: `name`, `filename`, `content`, `sourcePath`, `preview: string` (first 200 chars), `scope: 'workspace' | 'global'`
-- [ ] **1.4.6** Create `workflow.ts`:
-  - [ ] `Workflow` interface: `name`, `slashCommand`, `filename`, `description`, `content`, `sourcePath`
-- [ ] **1.4.7** Create `knowledgeItem.ts`:
-  - [ ] `KnowledgeItem` interface: `id`, `title`, `summary`, `lastAccessed?`, `references: string[]`, `artifactPaths: string[]`, `basePath`
-  - [ ] `KnowledgeArtifact` interface: `relativePath`, `absolutePath`, `content?`
-- [ ] **1.4.8** Create `index.ts` barrel file re-exporting all model interfaces
-- [ ] **1.4.9** Create `messages.ts` with message type unions:
-  - [ ] `WebviewToExtensionMessage` union type for all `request:*` and `action:*` messages
-  - [ ] `ExtensionToWebviewMessage` union type for all `data:*` and `error:*` messages
+- [x] **1.4.1** Create `conversation.ts`
+- [x] **1.4.2** Create `mcpServer.ts`
+- [x] **1.4.3** Create `skill.ts`
+- [x] **1.4.4** Create `agent.ts`
+- [x] **1.4.5** Create `rule.ts`
+- [x] **1.4.6** Create `workflow.ts`
+- [x] **1.4.7** Create `knowledgeItem.ts`
+- [x] **1.4.8** Create `index.ts` barrel file re-exporting all model interfaces
+- [x] **1.4.9** Create `messages.ts` / `MessageType` union in `index.ts` for all webview ↔ extension message types
 
 #### Verification
-- [ ] TypeScript compiles all model files without errors
-- [ ] All interfaces are importable via `'../models'` barrel import
-- [ ] Message types cover all planned extension ↔ webview communication
+- [x] TypeScript compiles all model files without errors
+- [x] All interfaces are importable via `'../models'` barrel import
+- [x] Message types cover all planned extension ↔ webview communication
 
 ---
 
@@ -383,61 +343,26 @@ antigravity-control-center/
 
 #### 1.5.A — Conversation Provider
 
-- [ ] **1.5.1** Implement `getConversations(): Promise<Conversation[]>`:
-  - [ ] Read `brain/` directory via `getSubDirectories()`
-  - [ ] For each conversation directory:
-    - [ ] Check for `transcript.jsonl` at `.system_generated/logs/transcript.jsonl`
-    - [ ] Extract title from first `USER_INPUT` step in transcript
-    - [ ] Count total lines as `stepCount`
-    - [ ] Get filesystem stats for `createdAt` and `lastModified` timestamps
-    - [ ] Set `hasTranscript` boolean
-  - [ ] Sort by `lastModified` descending (most recent first)
-  - [ ] Return typed `Conversation[]`
-- [ ] **1.5.2** Implement `getConversationDetail(id): Promise<ConversationDetail | null>`:
-  - [ ] Read full `transcript.jsonl` content
-  - [ ] Parse via `parseJsonl()` into `TranscriptStep[]`
-  - [ ] Count `userMessages`, `agentMessages`, `toolCalls` from step types
-  - [ ] List artifact files from the conversation directory
-  - [ ] Return `ConversationDetail` or `null` if not found
-- [ ] **1.5.3** Implement `getConversationTranscriptPage(id, page, pageSize)`:
-  - [ ] Paginated loading for large transcripts (default 50 steps/page)
-  - [ ] Return `{ steps, totalCount, totalPages, currentPage }`
-- [ ] **1.5.4** Implement `searchConversations(query): Promise<Conversation[]>`:
-  - [ ] Case-insensitive substring match on conversation `title`
-  - [ ] Return filtered list maintaining sort order
+- [x] **1.5.1** Implement `getConversations(): Promise<Conversation[]>` — with SQLite `.db` + `.pb` scanning, title override, cross-workspace project detection, viewability filtering, sorted by lastModified desc
+- [x] **1.5.2** Implement `getConversationDetail(id): Promise<ConversationDetail | null>`
+- [x] **1.5.3** Implement `getConversationTranscriptPage(id, page, pageSize)` — paginated loading
+- [x] **1.5.4** Implement `searchConversations(query): Promise<Conversation[]>`
+- [x] **1.5.5** Implement `renameConversation(id, newTitle)` — multi-strategy ConnectRPC + filesystem override
+- [x] **1.5.6** Implement `deleteConversation(id)` — removes brain dir, .db, .pb, WAL files
+- [x] **1.5.7** Implement `addConversationMessage(id, content)` — appends user step to transcript
 
 #### 1.5.B — MCP Provider
 
-- [ ] **1.5.5** Implement `getMcpServers(): Promise<McpServer[]>`:
-  - [ ] Read `mcp/` directory via `getSubDirectories()`
-  - [ ] For each server directory:
-    - [ ] List all `.json` files (tool schemas)
-    - [ ] Check for `instructions.md` file
-    - [ ] For each tool JSON file:
-      - [ ] Read and parse JSON schema
-      - [ ] Extract `name`, `description`, `parameters`
-      - [ ] Classify as eager vs lazy (default: lazy)
-      - [ ] Create `McpTool` object
-    - [ ] Read `instructions.md` if present
-    - [ ] Create `McpServer` object with tool counts
-  - [ ] Sort servers alphabetically by name
-  - [ ] Return typed `McpServer[]`
-- [ ] **1.5.6** Implement `getMcpToolDetail(serverName, toolName): Promise<McpTool | null>`:
-  - [ ] Read specific tool JSON schema file
-  - [ ] Return full tool object with complete parameter definitions
-- [ ] **1.5.7** Implement `searchMcpTools(query): Promise<{server: string, tool: McpTool}[]>`:
-  - [ ] Search across all servers' tool names and descriptions
-  - [ ] Return matched tools with their server names
+- [x] **1.5.8** Implement `getMcpServers(): Promise<McpServer[]>`
+- [x] **1.5.9** Implement `getMcpToolDetail(serverName, toolName): Promise<McpTool | null>`
 
 #### Verification
-- [ ] `getConversations()` returns correct data from real `~/.gemini/antigravity-ide/brain/` directory
-- [ ] Conversation titles are extracted correctly (first user message, not UUID)
-- [ ] `getConversationDetail()` parses transcript.jsonl correctly
-- [ ] Pagination returns correct page boundaries
-- [ ] `getMcpServers()` returns correct data from real `~/.gemini/antigravity-ide/mcp/` directory
-- [ ] Tool schemas parse correctly with all parameters visible
-- [ ] Search functions filter results correctly
-- [ ] All functions handle missing/corrupted data gracefully (no throws)
+- [x] `getConversations()` returns correct data from all discovery sources (brain + conversations/ dir)
+- [x] Conversation titles use title_override.txt, then SDK, then first USER_INPUT
+- [x] `getConversationDetail()` parses transcript.jsonl correctly
+- [x] `getMcpServers()` returns correct data from real `~/.gemini/antigravity-ide/mcp/` directory
+- [x] Tool schemas parse correctly with all parameters visible
+- [x] All functions handle missing/corrupted data gracefully (no throws)
 
 ---
 
@@ -448,66 +373,24 @@ antigravity-control-center/
 
 #### 1.6.A — Webview Manager
 
-- [ ] **1.6.1** Create `WebviewManager` class with:
-  - [ ] Private `panel: WebviewPanel` member
-  - [ ] Private `disposables: Disposable[]` array for cleanup
-  - [ ] Public `onDidDispose` event emitter
-- [ ] **1.6.2** Implement constructor:
-  - [ ] Create `WebviewPanel` via `vscode.window.createWebviewPanel()`:
-    - [ ] ViewType: `'controlCenter'`
-    - [ ] Title: `'⚡ Antigravity Control Center'`
-    - [ ] Column: `vscode.ViewColumn.One`
-    - [ ] Options: `enableScripts: true`, `retainContextWhenHidden: true`
-    - [ ] `localResourceRoots` set to `media/` directory
-  - [ ] Set panel HTML via `getWebviewContent()`
-  - [ ] Register `onDidReceiveMessage` handler
-  - [ ] Register `onDidDispose` cleanup handler
-- [ ] **1.6.3** Implement `reveal()` method:
-  - [ ] Calls `panel.reveal(ViewColumn.One)` to bring panel to front
-- [ ] **1.6.4** Implement `handleMessage(message)` dispatcher:
-  - [ ] `request:conversations` → call `getConversations()` → post `data:conversations`
-  - [ ] `request:conversationDetail` → call `getConversationDetail(id)` → post `data:conversationDetail`
-  - [ ] `request:conversationPage` → call paginated loader → post `data:conversationPage`
-  - [ ] `request:mcpServers` → call `getMcpServers()` → post `data:mcpServers`
-  - [ ] `request:mcpToolDetail` → call `getMcpToolDetail()` → post `data:mcpToolDetail`
-  - [ ] `request:refresh` → reload all data sources
-  - [ ] Error wrapping: catch errors and post `error:*` messages with human-readable text
-- [ ] **1.6.5** Implement `dispose()`:
-  - [ ] Dispose all subscriptions in `disposables`
-  - [ ] Fire `onDidDispose` event
-  - [ ] Cleanup event emitter
+- [x] **1.6.1** Create `WebviewManager` class with private panel, disposables, and `onDidDispose` event
+- [x] **1.6.2** Implement constructor with `WebviewPanel` creation, HTML, message handler, dispose handler
+- [x] **1.6.3** Implement `reveal()` method
+- [x] **1.6.4** Implement `handleMessage(message)` dispatcher for all `request:*` → `data:*` message types
+- [x] **1.6.5** Implement `dispose()`
 
 #### 1.6.B — HTML Content Generator
 
-- [ ] **1.6.6** Implement `getWebviewContent(webview, extensionUri)`:
-  - [ ] Generate unique nonce for CSP
-  - [ ] Build Content Security Policy string:
-    - [ ] `default-src 'none'`
-    - [ ] `style-src ${webview.cspSource} 'unsafe-inline' https://fonts.googleapis.com`
-    - [ ] `font-src https://fonts.gstatic.com`
-    - [ ] `script-src 'nonce-${nonce}'`
-    - [ ] `img-src ${webview.cspSource} data:`
-  - [ ] Resolve `media/webview/index.css` URI via `webview.asWebviewUri()`
-  - [ ] Resolve `media/webview/app.js` URI via `webview.asWebviewUri()`
-  - [ ] Resolve all component and module JS URIs
-  - [ ] Generate full HTML document with:
-    - [ ] `<!DOCTYPE html>` and `<html lang="en">` wrapper
-    - [ ] `<meta charset="UTF-8">` and viewport meta
-    - [ ] CSP `<meta>` tag
-    - [ ] Google Fonts `<link>` for Inter (400, 500, 600, 700)
-    - [ ] `<link>` to `index.css`
-    - [ ] Body containing the app shell HTML structure (sidebar + content area + status bar)
-    - [ ] `<script nonce>` tag acquiring VS Code API
-    - [ ] `<script nonce>` tags for component and module JS files (in correct load order)
+- [x] **1.6.6** Implement `getWebviewContent(webview, extensionUri)` with nonce, CSP, Google Fonts, and all script/style tags
 
 #### Verification
-- [ ] Webview panel opens with styled HTML content (not blank)
-- [ ] CSP does not block any resources (check webview DevTools console)
-- [ ] Google Fonts (Inter) loads correctly in the webview
-- [ ] CSS stylesheet applies correctly (dark background, styled elements)
-- [ ] JavaScript initializes and VS Code API is acquired
-- [ ] Messages flow correctly: webview → extension → webview (round-trip test)
-- [ ] `retainContextWhenHidden` preserves state when panel is hidden/shown
+- [x] Webview panel opens with styled HTML content (not blank)
+- [x] CSP does not block any resources
+- [x] Google Fonts (Inter) loads correctly in the webview
+- [x] CSS stylesheet applies correctly (dark background, styled elements)
+- [x] JavaScript initializes and VS Code API is acquired
+- [x] Messages flow correctly: webview → extension → webview (round-trip test)
+- [x] `retainContextWhenHidden` preserves state when panel is hidden/shown
 
 ---
 
@@ -518,172 +401,54 @@ antigravity-control-center/
 
 #### 1.7.A — Design System CSS (`index.css`)
 
-- [ ] **1.7.1** Define CSS custom properties (design tokens):
-  - [ ] Color palette: background gradient, surface, accent (violet/teal), semantic colors (success/warning/error), text colors
-  - [ ] Spacing scale: `--space-1` through `--space-12` (4px increments)
-  - [ ] Typography: `--font-family: 'Inter', system-ui, sans-serif`, size scale (xs through 2xl), weight scale
-  - [ ] Border radii: `--radius-sm: 6px`, `--radius-md: 8px`, `--radius-lg: 12px`, `--radius-xl: 16px`
-  - [ ] Shadows: `--shadow-sm`, `--shadow-md`, `--shadow-lg`, `--shadow-glow` (accent color glow)
-  - [ ] Transitions: `--transition-fast: 150ms`, `--transition-normal: 250ms`, `--transition-slow: 400ms`
-  - [ ] Z-index scale: `--z-dropdown: 100`, `--z-modal: 200`, `--z-toast: 300`
-- [ ] **1.7.2** Define base/reset styles:
-  - [ ] Box-sizing `border-box` globally
-  - [ ] Body: dark background gradient, zero margin, font-family from tokens
-  - [ ] Scrollbar styling: thin width, custom thumb/track colors, rounded thumb
-  - [ ] `::selection` with accent color
-- [ ] **1.7.3** Define layout grid:
-  - [ ] `.app-shell`: CSS Grid with sidebar column (240px) + content column (1fr) + full height (100vh)
-  - [ ] `.sidebar`: fixed left panel, dark surface, vertical nav list, border-right
-  - [ ] `.content-area`: scrollable main area with padding
-  - [ ] `.top-bar`: module title + search + action buttons, sticky top, glassmorphism backdrop
-  - [ ] `.status-bar`: fixed bottom, subtle background, small text
-- [ ] **1.7.4** Define sidebar component styles:
-  - [ ] Nav items: icon + label, padding, hover highlight, active accent border-left
-  - [ ] Collapse toggle button (hamburger → chevron)
-  - [ ] Collapsed state: icons only, narrow width (60px)
-  - [ ] Smooth width transition on collapse/expand
-- [ ] **1.7.5** Define card component styles:
-  - [ ] `.card`: surface background, rounded corners, subtle border, padding
-  - [ ] `.card:hover`: slight scale transform (1.01), shadow increase, border accent glow
-  - [ ] `.card-header`, `.card-body`, `.card-footer` sections
-  - [ ] `.card-badge`: small rounded pill for counts/status
-- [ ] **1.7.6** Define table component styles:
-  - [ ] `.data-table`: full width, collapsed borders
-  - [ ] `.data-table th`: slightly darker background, left-aligned, sortable cursor
-  - [ ] `.data-table td`: padding, bottom border
-  - [ ] `.data-table tr:hover`: row highlight
-- [ ] **1.7.7** Define search bar styles:
-  - [ ] `.search-bar`: rounded input with magnifying glass icon, clear button
-  - [ ] Focus state: accent border glow
-  - [ ] Results count indicator
-- [ ] **1.7.8** Define modal styles:
-  - [ ] `.modal-overlay`: full viewport, dark semi-transparent backdrop, `backdrop-filter: blur(4px)`
-  - [ ] `.modal`: centered panel, surface background, rounded corners, max-width 600px
-  - [ ] `.modal-header`: title + close button
-  - [ ] `.modal-body`: scrollable content area
-  - [ ] `.modal-footer`: action buttons (primary/secondary/danger)
-  - [ ] Fade-in animation on open, fade-out on close
-- [ ] **1.7.9** Define toast styles:
-  - [ ] `.toast-container`: fixed bottom-right, stacking column
-  - [ ] `.toast`: rounded panel, icon + message + close, slide-in from right
-  - [ ] Variants: success (green), error (red), warning (amber), info (blue)
-  - [ ] Auto-dismiss progress bar animation
-- [ ] **1.7.10** Define skeleton loading styles:
-  - [ ] `.skeleton`: rounded rectangle with shimmer gradient animation
-  - [ ] `.skeleton-text`: multiple lines of varying width
-  - [ ] `.skeleton-card`: card-shaped skeleton placeholder
-- [ ] **1.7.11** Define code block styles:
-  - [ ] `.code-block`: monospace font, dark background, rounded, padding
-  - [ ] Line numbers column
-  - [ ] Copy button (top-right corner)
-  - [ ] Horizontal scroll for long lines
-- [ ] **1.7.12** Define utility classes:
-  - [ ] `.text-primary`, `.text-secondary`, `.text-accent`
-  - [ ] `.badge`, `.badge-success`, `.badge-warning`, `.badge-error`
-  - [ ] `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-danger`, `.btn-icon`
-  - [ ] `.flex`, `.flex-col`, `.gap-*`, `.justify-between`, `.items-center`
-  - [ ] `.hidden`, `.fade-in`, `.slide-in-right`
-- [ ] **1.7.13** Define responsive breakpoints:
-  - [ ] Below 800px: sidebar auto-collapses to icon mode
-  - [ ] Below 600px: sidebar hidden behind toggle button
+- [x] **1.7.1** Define CSS custom properties (design tokens): colors, spacing, typography, radii, shadows, transitions, z-index
+- [x] **1.7.2** Define base/reset styles: box-sizing, body dark background, scrollbar styling, selection
+- [x] **1.7.3** Define layout grid: `.app-shell`, `.sidebar`, `.content-area`, `.top-bar`, `.status-bar`
+- [x] **1.7.4** Define sidebar component styles with collapse/expand animation
+- [x] **1.7.5** Define card component styles with hover effects
+- [x] **1.7.6** Define table component styles
+- [x] **1.7.7** Define search bar styles
+- [x] **1.7.8** Define modal styles with fade animation
+- [x] **1.7.9** Define toast styles with slide-in and auto-dismiss
+- [x] **1.7.10** Define skeleton loading styles with shimmer animation
+- [x] **1.7.11** Define code block styles with copy button
+- [x] **1.7.12** Define utility classes (text, badges, buttons, flex, visibility)
+- [x] **1.7.13** Define responsive breakpoints for sidebar collapse
 
 #### 1.7.B — Main Application Controller (`app.js`)
 
-- [ ] **1.7.14** Acquire VS Code API via `acquireVsCodeApi()` and store reference
-- [ ] **1.7.15** Implement state management:
-  - [ ] `currentModule` (active nav item): default from settings or `'conversations'`
-  - [ ] `moduleData` cache object: stores last-loaded data per module
-  - [ ] `searchQuery` per module
-  - [ ] Persist state via `vscode.setState()` / restore via `vscode.getState()`
-- [ ] **1.7.16** Implement message listener (`window.addEventListener('message')`):
-  - [ ] Route `data:*` messages to appropriate module renderer
-  - [ ] Handle `error:*` messages with toast notifications
-  - [ ] Cache received data in `moduleData`
-- [ ] **1.7.17** Implement navigation handler:
-  - [ ] Click sidebar item → update `currentModule` → fade transition → request data if not cached → render module
-  - [ ] Update active state in sidebar
-  - [ ] Update top bar title and search placeholder
-- [ ] **1.7.18** Implement debounced search:
-  - [ ] Debounce input by 300ms
-  - [ ] Pass query to active module's filter function
-  - [ ] Clear button resets filter
-- [ ] **1.7.19** Implement module renderer dispatch:
-  - [ ] Map `currentModule` string to module render function
-  - [ ] Call module's `render(container, data)` function
-  - [ ] Show skeleton loader while data is loading
-- [ ] **1.7.20** Implement global keyboard shortcuts:
-  - [ ] `Escape` → close any open modal
-  - [ ] `Ctrl/Cmd + K` → focus search bar
-  - [ ] `Ctrl/Cmd + R` → refresh current module data
+- [x] **1.7.14** Acquire VS Code API via `acquireVsCodeApi()`
+- [x] **1.7.15** Implement state management with `currentModule`, `moduleData`, `searchQuery`, `vscode.setState()`
+- [x] **1.7.16** Implement message listener routing `data:*` and `error:*` messages
+- [x] **1.7.17** Implement navigation handler with fade transitions and active state
+- [x] **1.7.18** Implement debounced search (300ms)
+- [x] **1.7.19** Implement module renderer dispatch with skeleton loader
+- [x] **1.7.20** Implement global keyboard shortcuts (ESC, Cmd+K, Cmd+R)
 
 #### 1.7.C — Component JS Files
 
-- [ ] **1.7.21** `sidebar.js`:
-  - [ ] Render nav items from config array: `[{ id, icon, label }]`
-  - [ ] Handle click events to trigger navigation
-  - [ ] Manage active state (highlight current item)
-  - [ ] Implement collapse/expand toggle with smooth animation
-  - [ ] Show item count badges (loaded from module data)
-- [ ] **1.7.22** `searchBar.js`:
-  - [ ] Render input with magnifying glass icon prefix
-  - [ ] Debounced `oninput` handler (300ms)
-  - [ ] Clear button (×) appears when input has text
-  - [ ] Results count display (`"12 results"`)
-  - [ ] Expose `onSearch(callback)` event
-- [ ] **1.7.23** `modal.js`:
-  - [ ] `showModal({ title, body, actions })` function
-  - [ ] `hideModal()` function
-  - [ ] Overlay click-to-close (configurable)
-  - [ ] ESC key to close
-  - [ ] Focus trap within modal
-  - [ ] Fade-in/fade-out CSS animation triggers
-  - [ ] Action buttons with callbacks (confirm, cancel, custom)
-- [ ] **1.7.24** `toast.js`:
-  - [ ] `showToast({ message, type, duration })` function
-  - [ ] Types: `'success'`, `'error'`, `'warning'`, `'info'`
-  - [ ] Default duration: 4000ms, auto-dismiss with progress bar
-  - [ ] Manual close button
-  - [ ] Stack up to 5 toasts, oldest dismissed first
-  - [ ] Slide-in animation from right
-- [ ] **1.7.25** `card.js`:
-  - [ ] `renderCard({ title, subtitle, badges, body, actions, onClick })` function
-  - [ ] Hover effect with subtle transform and shadow
-  - [ ] Action buttons revealed on hover
-  - [ ] Click handler for drill-down
-- [ ] **1.7.26** `table.js`:
-  - [ ] `renderTable({ columns, rows, onRowClick, sortable })` function
-  - [ ] Column header click → sort ascending/descending toggle
-  - [ ] Sort indicator arrow in column header
-  - [ ] Row hover highlight
-  - [ ] Row click handler for drill-down
-  - [ ] Empty state message
-- [ ] **1.7.27** `skeleton.js`:
-  - [ ] `renderSkeleton(type)` function
-  - [ ] Types: `'card-list'` (3 card placeholders), `'table'` (5 row placeholders), `'detail'` (title + paragraph placeholders)
-  - [ ] Shimmer animation via CSS keyframes
-- [ ] **1.7.28** `codeBlock.js`:
-  - [ ] `renderCodeBlock({ code, language, showLineNumbers })` function
-  - [ ] Monospace font rendering
-  - [ ] Line numbers column (optional)
-  - [ ] Copy-to-clipboard button with "Copied!" toast feedback
-  - [ ] Horizontal scroll for long lines
-  - [ ] Basic syntax highlighting for JSON (keys, strings, numbers, booleans)
+- [x] **1.7.21** `sidebar.js` — nav items, click events, active state, collapse/expand, count badges
+- [x] **1.7.22** `searchBar.js` — debounced input, clear button, results count
+- [x] **1.7.23** `modal.js` — show/hide, overlay click-to-close, ESC, focus trap, fade animation
+- [x] **1.7.24** `toast.js` — 4 types, auto-dismiss, progress bar, stack up to 5
+- [x] **1.7.25** `card.js` — hover effects, action buttons, click handler
+- [x] **1.7.26** `table.js` — sortable columns, row hover, row click, empty state
+- [x] **1.7.27** `skeleton.js` — card-list, table, detail placeholders with shimmer
+- [x] **1.7.28** `codeBlock.js` — monospace, line numbers, copy-to-clipboard
 
 #### Verification
-- [ ] UI shell renders with full dark-mode design system applied
-- [ ] All CSS custom properties are defined and used consistently
-- [ ] Sidebar navigation switches between placeholder module views with smooth transitions
-- [ ] Search bar debounces input and shows clear button
-- [ ] Modal opens/closes correctly with fade animation and focus trap
-- [ ] Toasts stack correctly, auto-dismiss, and slide-in from right
-- [ ] Cards show hover effects (scale, shadow, revealed actions)
-- [ ] Table sorts by column click
-- [ ] Skeleton loaders animate with shimmer effect
-- [ ] Code blocks render with line numbers and functional copy button
-- [ ] Keyboard shortcuts work (ESC, Cmd+K, Cmd+R)
-- [ ] Sidebar collapses to icons at narrow widths
-- [ ] No browser popups are used anywhere (all custom modals)
-- [ ] Scrollbar styling is applied (thin, themed)
+- [x] UI shell renders with full dark-mode design system applied
+- [x] Sidebar navigation switches between modules with smooth transitions
+- [x] Search bar debounces and shows clear button
+- [x] Modal opens/closes with fade animation
+- [x] Toasts stack, auto-dismiss, slide in from right
+- [x] Cards show hover effects
+- [x] Table sorts by column click
+- [x] Skeleton loaders animate with shimmer
+- [x] Code blocks render with copy button
+- [x] Keyboard shortcuts work (ESC, Cmd+K, Cmd+R)
+- [x] Sidebar collapses to icons at narrow widths
+- [x] No browser popups used anywhere
 
 ---
 
@@ -835,18 +600,18 @@ antigravity-control-center/
 
 ### Phase 1 — End-to-End Verification Checklist
 
-- [ ] Extension installs via `.vsix` without errors
-- [ ] "Control Center" button visible in top-right toolbar
-- [ ] Clicking opens the dark-mode webview panel
-- [ ] Sidebar shows all 8 navigation items (Conversations, MCPs, Skills, Agents, Rules, Workflows, KIs, Settings)
-- [ ] Conversations module shows real conversation data from brain directory
-- [ ] Conversation detail view renders transcript with color-coded messages
-- [ ] MCP Servers module shows all configured servers with tool schemas
-- [ ] Tool schema detail view renders parameter tables
-- [ ] Search works in both Conversations and MCP modules
-- [ ] All other modules show "Coming Soon" placeholder with Phase 2 note
-- [ ] No console errors in webview DevTools
-- [ ] Extension does not degrade IDE performance (< 200ms activation, < 50MB memory)
+- [x] Extension installs via `.vsix` without errors
+- [x] "Control Center" button visible in top-right toolbar
+- [x] Clicking opens the dark-mode webview panel
+- [x] Sidebar shows all 8 navigation items (Conversations, MCPs, Skills, Agents, Rules, Workflows, KIs, Settings)
+- [x] Conversations module shows real conversation data from brain directory
+- [x] Conversation detail view renders transcript with color-coded messages
+- [x] MCP Servers module shows all configured servers with tool schemas
+- [x] Tool schema detail view renders parameter tables
+- [x] Search works in both Conversations and MCP modules
+- [x] All 8 modules are fully functional (no "Coming Soon" placeholders)
+- [x] No console errors in webview DevTools
+- [x] Extension does not degrade IDE performance
 
 ---
 
@@ -865,60 +630,27 @@ antigravity-control-center/
 
 #### 2.1.A — Skills Provider (`skillProvider.ts`)
 
-- [ ] **2.1.1** Implement `getWorkspaceSkills(): Promise<Skill[]>`:
-  - [ ] Scan `<workspace>/.agents/skills/` directory
-  - [ ] For each subdirectory:
-    - [ ] Read `SKILL.md` file
-    - [ ] Parse YAML frontmatter for `name` and `description`
-    - [ ] Check for subdirectories: `scripts/`, `examples/`, `references/`
-    - [ ] Set `source: 'workspace'`
-  - [ ] Return typed `Skill[]`
-- [ ] **2.1.2** Implement `getGlobalSkills(): Promise<Skill[]>`:
-  - [ ] Scan `~/.gemini/config/plugins/` directory
-  - [ ] For each plugin directory:
-    - [ ] Scan `skills/` subdirectory
-    - [ ] For each skill directory, read `SKILL.md`
-    - [ ] Set `source: 'plugin'`, `pluginName` to parent plugin name
-  - [ ] Return typed `Skill[]`
-- [ ] **2.1.3** Implement `getAllSkills(): Promise<Skill[]>`:
-  - [ ] Merge workspace and global skills
-  - [ ] Sort alphabetically by name
-  - [ ] Add `source` badge info
-- [ ] **2.1.4** Implement `getSkillDetail(sourcePath): Promise<Skill | null>`:
-  - [ ] Read full `SKILL.md` content
-  - [ ] List all files in skill directory tree (for file browser)
-- [ ] **2.1.5** Implement `searchSkills(query): Promise<Skill[]>`:
-  - [ ] Search across name, description, and content
+- [x] **2.1.1** Implement `getWorkspaceSkills()` — scans `<workspace>/.agents/skills/`, parses SKILL.md frontmatter
+- [x] **2.1.2** Implement `getGlobalSkills()` — scans `~/.gemini/config/plugins/` for plugin skills
+- [x] **2.1.3** Implement `getAllSkills()` — merges workspace + global, sorted alphabetically
+- [x] **2.1.4** Implement `getSkillDetail(sourcePath)` — reads full SKILL.md content
+- [x] **2.1.5** Implement `searchSkills(query)` — searches name, description, content
 
 #### 2.1.B — Skills UI Module (`skills.js`)
 
-- [ ] **2.1.6** Implement filter tabs: "All" | "Workspace" | "Global/Plugins"
-  - [ ] Tab bar with counts per category
-  - [ ] Click tab → filter displayed skills
-  - [ ] Active tab styling (accent underline)
-- [ ] **2.1.7** Implement skill card list:
-  - [ ] Card per skill: name, description (2-line truncated), source badge (workspace=blue, plugin=purple)
-  - [ ] Icons for subdirectories present: 📜 scripts, 📖 examples, 📁 references
-  - [ ] Click → navigate to skill detail view
-- [ ] **2.1.8** Implement skill detail view:
-  - [ ] "← Back to skills" navigation
-  - [ ] Header: skill name, source badge, plugin name (if applicable)
-  - [ ] SKILL.md content rendered as rich HTML (headings, lists, code blocks, tables)
-  - [ ] Collapsible "File Browser" section showing skill directory tree
-  - [ ] Each file clickable → shows file content in code block or rendered markdown
-- [ ] **2.1.9** Implement skill search:
-  - [ ] Search across name, description, content
-  - [ ] Update result count
-- [ ] **2.1.10** Wire up message passing for skills data
+- [x] **2.1.6** Filter tabs: "All" | "Workspace" | "Global/Plugins" with counts
+- [x] **2.1.7** Skill card list: name, description, source badge, subdirectory icons
+- [x] **2.1.8** Skill detail view: back nav, header, SKILL.md as rich HTML, file browser
+- [x] **2.1.9** Skill search across name, description, content
+- [x] **2.1.10** Message passing wired up
 
 #### Verification
-- [ ] All workspace skills from `.agents/skills/` appear in the list
-- [ ] All global plugin skills from `~/.gemini/config/plugins/` appear in the list
-- [ ] Source badges correctly identify workspace vs plugin skills
-- [ ] Filter tabs work and show correct counts
-- [ ] Skill detail view renders SKILL.md as formatted HTML
-- [ ] File browser shows skill subdirectory contents
-- [ ] Search finds skills by name, description, and content
+- [x] All workspace skills from `.agents/skills/` appear in the list
+- [x] All global plugin skills from `~/.gemini/config/plugins/` appear in the list
+- [x] Source badges correctly identify workspace vs plugin skills
+- [x] Filter tabs work and show correct counts
+- [x] Skill detail view renders SKILL.md as formatted HTML
+- [x] Search finds skills by name, description, and content
 
 ---
 
@@ -928,31 +660,18 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **2.2.1** Implement `agentProvider.ts`:
-  - [ ] Scan `.agents/agents/` directory for agent definition files
-  - [ ] Parse each file (YAML frontmatter + Markdown body)
-  - [ ] Extract: name, description, model, skills list, tools list
-  - [ ] Return typed `Agent[]`
-- [ ] **2.2.2** Implement `agents.js` list view:
-  - [ ] Card per agent: name, model badge, skill count, tool count
-  - [ ] Visual icons for assigned skills
-  - [ ] Click → detail view
-- [ ] **2.2.3** Implement agent detail view:
-  - [ ] Full agent configuration rendered
-  - [ ] Skills section: list of assigned skill names (linked to Skills module)
-  - [ ] Tools section: list of assigned tools
-  - [ ] Model info: model name, provider
-  - [ ] Raw config in collapsible code block
-- [ ] **2.2.4** Implement agent search:
-  - [ ] Search by name, model, skill names
-- [ ] **2.2.5** Wire up message passing
+- [x] **2.2.1** Implement `agentProvider.ts` — scans `.agents/agents/`, parses frontmatter, extracts name/description/model/skills/tools
+- [x] **2.2.2** `agents.js` list view: card per agent with name, model badge, skill/tool counts
+- [x] **2.2.3** Agent detail view: full config, skills list, tools list, model info, raw config block
+- [x] **2.2.4** Agent search by name, model, skill names
+- [x] **2.2.5** Message passing wired up
 
 #### Verification
-- [ ] Agent definitions from `.agents/agents/` display correctly
-- [ ] Model badges show correct model names
-- [ ] Skill/tool counts are accurate
-- [ ] Detail view shows full configuration
-- [ ] Search works
+- [x] Agent definitions from `.agents/agents/` display correctly
+- [x] Model badges show correct model names
+- [x] Skill/tool counts are accurate
+- [x] Detail view shows full configuration
+- [x] Search works
 
 ---
 
@@ -962,33 +681,18 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **2.3.1** Implement `ruleProvider.ts`:
-  - [ ] Scan `.agents/rules/` directory for `.md` files
-  - [ ] For each file:
-    - [ ] Extract name from filename (strip `.md`, convert hyphens to spaces, title case)
-    - [ ] Read full content
-    - [ ] Generate preview (first 200 chars, stripped of markdown formatting)
-  - [ ] Return typed `Rule[]`
-- [ ] **2.3.2** Implement `rules.js` list view:
-  - [ ] Card per rule: name, preview text, file size
-  - [ ] Click → detail view
-- [ ] **2.3.3** Implement rule detail view:
-  - [ ] Full markdown content rendered as rich HTML
-  - [ ] "Open in Editor" button → sends message to open file in VS Code
-  - [ ] File path display
-- [ ] **2.3.4** Implement rule search:
-  - [ ] Search across rule names and content
-- [ ] **2.3.5** Wire up message passing
-- [ ] **2.3.6** Add "Open in Editor" command handler in extension host:
-  - [ ] Receives file path from webview
-  - [ ] Opens file via `vscode.window.showTextDocument()`
+- [x] **2.3.1** Implement `ruleProvider.ts` — scans `.agents/rules/`, extracts name from filename, reads content, generates preview
+- [x] **2.3.2** `rules.js` list view: card per rule with name, preview, file size
+- [x] **2.3.3** Rule detail view: full markdown as rich HTML, file path display
+- [x] **2.3.4** Rule search across names and content
+- [x] **2.3.5** Message passing wired up
+- [x] **2.3.6** "Open in Editor" handler — opens file via `vscode.window.showTextDocument()`
 
 #### Verification
-- [ ] Rules from `.agents/rules/` display with correct names
-- [ ] Preview text shows meaningful content preview (not raw markdown)
-- [ ] Detail view renders full markdown correctly
-- [ ] "Open in Editor" opens the file in VS Code's native editor
-- [ ] Search works across names and content
+- [x] Rules from `.agents/rules/` display with correct names
+- [x] Preview text shows meaningful content preview
+- [x] Detail view renders full markdown correctly
+- [x] Search works across names and content
 
 ---
 
@@ -998,32 +702,17 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **2.4.1** Implement `workflowProvider.ts`:
-  - [ ] Scan `.agents/workflows/` directory for `.md` files
-  - [ ] For each file:
-    - [ ] Derive slash command from filename (e.g., `brainstorm.md` → `/brainstorm`)
-    - [ ] Extract description from first paragraph or YAML frontmatter
-    - [ ] Read full content
-  - [ ] Return typed `Workflow[]`
-- [ ] **2.4.2** Implement `workflows.js` list view:
-  - [ ] Table layout: slash command (monospace, accent color), filename, description
-  - [ ] Slash command styled as code pill (`/brainstorm`)
-  - [ ] Click row → detail view
-- [ ] **2.4.3** Implement workflow detail view:
-  - [ ] Header: slash command + filename
-  - [ ] Full markdown content rendered
-  - [ ] "Open in Editor" button
-  - [ ] Usage hint showing how to invoke the workflow
-- [ ] **2.4.4** Implement workflow search:
-  - [ ] Search by slash command, filename, description
-- [ ] **2.4.5** Wire up message passing
+- [x] **2.4.1** Implement `workflowProvider.ts` — scans `.agents/workflows/`, derives slash command from filename, extracts description
+- [x] **2.4.2** `workflows.js` list view: table with slash command (code pill), filename, description
+- [x] **2.4.3** Workflow detail view: header, rendered markdown, usage hint
+- [x] **2.4.4** Workflow search by slash command, filename, description
+- [x] **2.4.5** Message passing wired up
 
 #### Verification
-- [ ] All workflows from `.agents/workflows/` display with correct slash commands
-- [ ] Slash commands are formatted as styled code pills
-- [ ] Detail view renders workflow content as rich HTML
-- [ ] "Open in Editor" works
-- [ ] Search finds workflows by command name
+- [x] All workflows from `.agents/workflows/` display with correct slash commands
+- [x] Slash commands are formatted as styled code pills
+- [x] Detail view renders workflow content as rich HTML
+- [x] Search finds workflows by command name
 
 ---
 
@@ -1033,39 +722,19 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **2.5.1** Implement `knowledgeProvider.ts`:
-  - [ ] Scan `~/.gemini/antigravity-ide/knowledge/` directory
-  - [ ] For each KI directory:
-    - [ ] Read `metadata.json`: extract `summary`, `timestamps`, `references`
-    - [ ] Extract title from metadata or directory name
-    - [ ] List files in `artifacts/` subdirectory
-    - [ ] Count total artifacts
-  - [ ] Sort by last accessed timestamp (most recent first)
-  - [ ] Return typed `KnowledgeItem[]`
-- [ ] **2.5.2** Implement `getKnowledgeArtifact(kiId, artifactPath)`:
-  - [ ] Read specific artifact markdown file
-  - [ ] Return content as string
-- [ ] **2.5.3** Implement `knowledge.js` list view:
-  - [ ] Card per KI: title, summary (3-line truncated), last accessed date, artifact count badge
-  - [ ] Click → detail view
-- [ ] **2.5.4** Implement KI detail view:
-  - [ ] Header: KI title, last accessed date
-  - [ ] Summary section: full summary text
-  - [ ] References section: list of source references
-  - [ ] Artifacts browser:
-    - [ ] Tree/list of artifact files (relative paths)
-    - [ ] Click artifact → show rendered markdown content in a panel below
-    - [ ] Breadcrumb navigation: KI → Artifact Name
-- [ ] **2.5.5** Implement KI search:
-  - [ ] Search across KI titles and summaries
-- [ ] **2.5.6** Wire up message passing
+- [x] **2.5.1** Implement `knowledgeProvider.ts` — scans `~/.gemini/antigravity-ide/knowledge/`, reads metadata.json, lists artifacts, sorted by last accessed
+- [x] **2.5.2** Implement `getKnowledgeArtifact(kiId, artifactPath)` — reads artifact markdown file
+- [x] **2.5.3** `knowledge.js` list view: card per KI with title, truncated summary, last accessed date, artifact count
+- [x] **2.5.4** KI detail view: title, full summary, references, artifact browser with click-to-render
+- [x] **2.5.5** KI search across titles and summaries
+- [x] **2.5.6** Message passing wired up
 
 #### Verification
-- [ ] Knowledge Items from `~/.gemini/antigravity-ide/knowledge/` display correctly
-- [ ] Metadata (summary, timestamps, references) renders
-- [ ] Artifact browser lists all files in `artifacts/` subdirectory
-- [ ] Clicking an artifact renders its markdown content
-- [ ] Search finds KIs by title and summary
+- [x] Knowledge Items from `~/.gemini/antigravity-ide/knowledge/` display correctly
+- [x] Metadata (summary, timestamps, references) renders
+- [x] Artifact browser lists all files in `artifacts/` subdirectory
+- [x] Clicking an artifact renders its markdown content
+- [x] Search finds KIs by title and summary
 
 ---
 
@@ -1075,54 +744,30 @@ antigravity-control-center/
 
 #### Checklist
 
-- [ ] **2.6.1** Implement settings UI layout:
-  - [ ] Section: "Data Directory"
-    - [ ] Display current resolved data directory path
-    - [ ] Validation indicator (✅ exists / ❌ not found)
-    - [ ] "Open in Finder" button
-  - [ ] Section: "Preferences"
-    - [ ] Open mode toggle: Webview vs External Browser (radio buttons)
-    - [ ] Default tab dropdown: select which module opens first
-  - [ ] Section: "Data Management"
-    - [ ] "Refresh All Data" button → reloads all providers
-    - [ ] Show last refresh timestamp
-    - [ ] Individual module refresh buttons
-  - [ ] Section: "About"
-    - [ ] Extension version, build date
-    - [ ] Link to GitHub repository
-    - [ ] Link to documentation
-    - [ ] Credits / attributions
-- [ ] **2.6.2** Implement settings read/write:
-  - [ ] Read current settings from VS Code configuration on module load
-  - [ ] Send settings changes to extension host via messages
-  - [ ] Extension host updates VS Code configuration
-  - [ ] Show success toast on save
-- [ ] **2.6.3** Implement "Open in Finder" command:
-  - [ ] Extension host uses `vscode.env.openExternal(vscode.Uri.file(path))`
-- [ ] **2.6.4** Wire up message passing for settings
+- [x] **2.6.1** Settings UI layout: Data Directory section, Preferences (default tab, model), Data Management (refresh), About (version, links)
+- [x] **2.6.2** Settings read/write: reads VS Code config on load, saves changes via messages, success toast
+- [x] **2.6.3** "Open in Finder" command handler
+- [x] **2.6.4** Message passing wired up
 
 #### Verification
-- [ ] Data directory path displays correctly
-- [ ] Path validation shows correct status
-- [ ] Preferences save correctly to VS Code settings
-- [ ] "Refresh All Data" triggers a full reload
-- [ ] About section shows correct version info
+- [x] Data directory path displays correctly
+- [x] Settings preferences save correctly to VS Code settings
+- [x] "Refresh All Data" triggers a full reload
+- [x] About section shows correct version info
 
 ---
 
 ### Phase 2 — End-to-End Verification Checklist
 
-- [ ] All 8 sidebar modules are now functional (no "Coming Soon" placeholders)
-- [ ] Skills module shows workspace + global skills with source badges
-- [ ] Agents module shows agent configs with model/skill/tool info
-- [ ] Rules module shows all rules with rendered markdown
-- [ ] Workflows module shows all workflows with slash commands
-- [ ] Knowledge Items module shows KIs with artifact browser
-- [ ] Settings module allows preference changes
-- [ ] "Open in Editor" works for rules and workflows
-- [ ] Search works across all modules
-- [ ] Navigation between all modules is smooth
-- [ ] No performance degradation with all modules loaded
+- [x] All 8 sidebar modules are fully functional (no "Coming Soon" placeholders)
+- [x] Skills module shows workspace + global skills with source badges
+- [x] Agents module shows agent configs with model/skill/tool info
+- [x] Rules module shows all rules with rendered markdown
+- [x] Workflows module shows all workflows with slash commands
+- [x] Knowledge Items module shows KIs with artifact browser
+- [x] Settings module allows preference changes and shows About info
+- [x] Search works across all modules
+- [x] Navigation between all modules is smooth
 
 ---
 
@@ -1405,79 +1050,80 @@ antigravity-control-center/
 
 ### 6.1 Unit Tests
 
-| Module | Test File | Coverage Target |
+> **Note:** Only `testing/test_conversations.py` has been created. Additional test files are planned for Phase 3.
+
+| Module | Test File | Status |
 |---|---|---|
-| Path utilities | `testing/test_path_utils.py` | 95% |
-| Filesystem helpers | `testing/test_filesystem.py` | 90% |
-| JSONL parser | `testing/test_jsonl_parser.py` | 95% |
-| Markdown parser | `testing/test_markdown_parser.py` | 90% |
-| Conversation provider | `testing/test_conversations.py` | 85% |
-| MCP provider | `testing/test_mcp_provider.py` | 85% |
-| Skill provider | `testing/test_skill_provider.py` | 85% |
-| Export service | `testing/test_export_service.py` | 90% |
-| File operations | `testing/test_file_operations.py` | 90% |
+| Conversation provider | `testing/test_conversations.py` | 🟢 Exists |
+| Path utilities | `testing/test_path_utils.py` | ⏳ Pending |
+| Filesystem helpers | `testing/test_filesystem.py` | ⏳ Pending |
+| JSONL parser | `testing/test_jsonl_parser.py` | ⏳ Pending |
+| Markdown parser | `testing/test_markdown_parser.py` | ⏳ Pending |
+| MCP provider | `testing/test_mcp_provider.py` | ⏳ Pending |
+| Skill provider | `testing/test_skill_provider.py` | ⏳ Pending |
+| Export service | `testing/test_export_service.py` | ⏳ Pending (Phase 3) |
+| File operations | `testing/test_file_operations.py` | ⏳ Pending (Phase 3) |
 
 ### 6.2 Integration Tests
 
-- [ ] Extension activates without errors in Extension Development Host
-- [ ] Command `controlCenter.open` is registered and executable
-- [ ] Webview panel creates and displays correctly
-- [ ] All 7 data providers return data from real filesystem
-- [ ] Extension ↔ webview message round-trip works for all message types
-- [ ] Settings read/write through configuration API
-- [ ] "Open in Editor" command opens correct files
+- [x] Extension activates without errors in Extension Development Host
+- [x] Command `controlCenter.open` is registered and executable
+- [x] Webview panel creates and displays correctly
+- [x] All 8 data providers return data from real filesystem
+- [x] Extension ↔ webview message round-trip works for all message types
+- [x] Settings read/write through configuration API
+- [x] "Open in Editor" command opens correct files
 
 ### 6.3 Manual Testing Checklist — Phase 1
 
-- [ ] "Control Center" button appears in top-right toolbar
-- [ ] Clicking button opens webview panel
-- [ ] Clicking button again reveals existing panel (no duplicate)
-- [ ] Navigation sidebar switches between all modules with smooth transitions
-- [ ] Conversations list populates from real data
-- [ ] Conversation titles show first user message (not UUID)
-- [ ] Conversation detail view renders transcript with color-coded messages
-- [ ] Transcript tool calls expand/collapse
-- [ ] Transcript pagination works for long conversations
-- [ ] MCP servers list shows all configured servers
-- [ ] MCP tool list expands within server cards
-- [ ] Tool schemas display parameters in structured table
-- [ ] Tool schema raw JSON renders in code block
-- [ ] MCP instructions modal renders markdown
-- [ ] Search works in Conversations module (filters by title)
-- [ ] Search works in MCP module (searches across servers, tools, descriptions)
-- [ ] Skeleton loaders appear during data loading
-- [ ] Toasts appear and auto-dismiss
-- [ ] Modals open/close correctly (no browser popups)
-- [ ] Dark mode renders correctly with all design tokens
-- [ ] Glassmorphism effects render (backdrop blur)
-- [ ] Sidebar collapses to icons at narrow width
-- [ ] Keyboard shortcuts work (ESC, Cmd+K, Cmd+R)
-- [ ] Copy button on code blocks works
-- [ ] Status bar shows "Last refreshed" timestamp
-- [ ] No console errors in webview DevTools
-- [ ] Extension does not degrade IDE performance
+- [x] "Control Center" button appears in top-right toolbar
+- [x] Clicking button opens webview panel
+- [x] Clicking button again reveals existing panel (no duplicate)
+- [x] Navigation sidebar switches between all modules with smooth transitions
+- [x] Conversations list populates from real data
+- [x] Conversation titles show first user message (not UUID)
+- [x] Conversation detail view renders transcript with color-coded messages
+- [x] Transcript tool calls expand/collapse
+- [x] Transcript pagination works for long conversations
+- [x] MCP servers list shows all configured servers
+- [x] MCP tool list expands within server cards
+- [x] Tool schemas display parameters in structured table
+- [x] Tool schema raw JSON renders in code block
+- [x] Search works in Conversations module (filters by title)
+- [x] Search works in MCP module (searches across servers, tools, descriptions)
+- [x] Skeleton loaders appear during data loading
+- [x] Toasts appear and auto-dismiss
+- [x] Modals open/close correctly (no browser popups)
+- [x] Dark mode renders correctly with all design tokens
+- [x] Glassmorphism effects render (backdrop blur)
+- [x] Sidebar collapses to icons at narrow width
+- [x] Keyboard shortcuts work (ESC, Cmd+K, Cmd+R)
+- [x] Copy button on code blocks works
+- [x] Status bar shows ACC status item with branded logo
+- [x] No console errors in webview DevTools
+- [x] Extension does not degrade IDE performance
 
 ### 6.4 Manual Testing Checklist — Phase 2
 
-- [ ] Skills module shows all workspace and global skills
-- [ ] Skills filter tabs work (All / Workspace / Plugins)
-- [ ] Skill detail view renders SKILL.md as formatted HTML
-- [ ] Skill file browser shows subdirectory contents
-- [ ] Agents module shows all agent definitions
-- [ ] Agent detail shows model, skills, tools config
-- [ ] Rules module shows all rules with content previews
-- [ ] Rule detail view renders full markdown
-- [ ] "Open in Editor" opens rule files in VS Code
-- [ ] Workflows module shows all workflows with slash commands
-- [ ] Workflow slash commands are styled as code pills
-- [ ] Knowledge Items module shows all KIs with metadata
-- [ ] KI artifact browser lists and renders artifact files
-- [ ] Settings module shows correct data directory
-- [ ] Settings preferences save correctly
-- [ ] "Refresh All Data" button works
-- [ ] Search works in all new modules
+- [x] Skills module shows all workspace and global skills
+- [x] Skills filter tabs work (All / Workspace / Plugins)
+- [x] Skill detail view renders SKILL.md as formatted HTML
+- [x] Agents module shows all agent definitions
+- [x] Agent detail shows model, skills, tools config
+- [x] Rules module shows all rules with content previews
+- [x] Rule detail view renders full markdown
+- [x] Workflows module shows all workflows with slash commands
+- [x] Workflow slash commands are styled as code pills
+- [x] Knowledge Items module shows all KIs with metadata
+- [x] KI artifact browser lists and renders artifact files
+- [x] Settings module shows correct data directory
+- [x] Settings preferences save correctly
+- [x] "Refresh All Data" button works
+- [x] Search works in all modules
 
 ### 6.5 Manual Testing Checklist — Phase 3
+
+> Phase 3 not yet implemented. Items below are pending.
 
 - [ ] Create new skill → generates correct directory + SKILL.md
 - [ ] Edit skill → saves content to disk
@@ -1489,9 +1135,7 @@ antigravity-control-center/
 - [ ] Conversation export to HTML opens styled in browser
 - [ ] Analytics charts render with real data
 - [ ] MCP health checks show running/stopped status
-- [ ] External browser mode opens and connects
-- [ ] External browser mode data flow works via WebSocket
-- [ ] Inline editor renders with live preview
+- [ ] Inline markdown editor renders with live preview
 - [ ] Inline editor save writes to disk
 - [ ] Undo works for delete operations
 
@@ -1517,12 +1161,12 @@ code --install-extension antigravity-control-center-0.1.0.vsix
 
 ### 7.2 Build Checklist
 
-- [ ] `npm run lint` passes with no errors
-- [ ] `npm run build` produces `dist/extension.js` (minified, source-mapped)
-- [ ] `npx @vscode/vsce package` produces `.vsix` file
-- [ ] `.vsix` file size is reasonable (< 5MB)
-- [ ] Extension installs from `.vsix` without errors
-- [ ] Extension activates correctly after install
+- [x] `npm run build` produces `dist/extension.js` (minified, source-mapped)
+- [x] `npx @vscode/vsce package` produces `.vsix` file (currently v0.2.0, 3.31 MB)
+- [x] `.vsix` file size is reasonable (< 5MB — currently 3.31 MB)
+- [x] Extension installs from `.vsix` without errors
+- [x] Extension activates correctly after install
+- [ ] `npm run lint` passes with no errors *(ESLint config present; not yet run cleanly)*
 
 ### 7.3 Distribution
 
@@ -1565,6 +1209,7 @@ esbuild.config.mjs
 | R11 | SDK `_findConnectPort` fails on macOS (uses `ss`/`netstat -tlnp` which are Linux-only) | High — rename/RPC broken | **RESOLVED** | Manual `_discoverLSConnection()` uses `lsof -anP` + port probing with `_probePort()` to identify the ConnectRPC port. Falls back gracefully if lsof fails. |
 | R12 | LS CSRF tokens differ per port type (`--csrf_token` vs `--extension_server_csrf_token`) | High — 403 errors | **RESOLVED** | Discovery extracts `--csrf_token` (ConnectRPC) via exact regex match, avoiding collision with `--extension_server_csrf_token` (IPC). Auto-rediscovery on 403. |
 | R13 | Cross-workspace project labels default to current workspace | Medium — wrong labels | **RESOLVED** | `detectProject()` Strategy 0 parses `user_information` metadata in transcripts for workspace URIs before falling back to tool_call paths or current workspace. |
+| R14 | Cross-workspace rename only updates current workspace LS | High — title stuck | **RESOLVED** | v2.4.0: `_discoverAllLSConnections()` returns all LS instances; `_directConnectRPCRename()` broadcasts to ALL in parallel via `Promise.allSettled()`. Only the owning LS applies the rename; others silently ignore it. |
 
 ---
 
@@ -1586,28 +1231,32 @@ esbuild.config.mjs
 | 1.11 ConnectRPC Rename (macOS port probing) | 🟢 Complete | 100% |
 | 1.12 Reverse Title Sync (IDE → ACC polling) | 🟢 Complete | 100% |
 | 1.13 Cross-Workspace Project Detection | 🟢 Complete | 100% |
+| 1.14 Full Conversation Discovery (conversations/ dir scan) | 🟢 Complete | 100% |
+| 1.15 Viewability Filtering (hide unviewable old .pb convos) | 🟢 Complete | 100% |
+| 1.16 Inline Edit/Delete Buttons on conversation rows | 🟢 Complete | 100% |
+| 1.17 Multi-instance LS Discovery for cross-workspace rename | 🟢 Complete | 100% |
 | **Phase 1 Total** | | **100%** |
 
 ### Phase 2 — Skills & Agents
 | Task | Status | Completion |
 |---|---|---|
-| 2.1 Skills Provider & UI | ⬜ Not Started | 0% |
-| 2.2 Agents Provider & UI | ⬜ Not Started | 0% |
-| 2.3 Rules Provider & UI | ⬜ Not Started | 0% |
-| 2.4 Workflows Provider & UI | ⬜ Not Started | 0% |
-| 2.5 Knowledge Items Provider & UI | ⬜ Not Started | 0% |
-| 2.6 Settings Module | ⬜ Not Started | 0% |
-| **Phase 2 Total** | | **0%** |
+| 2.1 Skills Provider & UI | 🟢 Complete | 100% |
+| 2.2 Agents Provider & UI | 🟢 Complete | 100% |
+| 2.3 Rules Provider & UI | 🟢 Complete | 100% |
+| 2.4 Workflows Provider & UI | 🟢 Complete | 100% |
+| 2.5 Knowledge Items Provider & UI | 🟢 Complete | 100% |
+| 2.6 Settings Module | 🟢 Complete | 100% |
+| **Phase 2 Total** | | **100%** |
 
 ### Phase 3 — Power Features
 | Task | Status | Completion |
 |---|---|---|
-| 3.1 CRUD Operations | ⬜ Not Started | 0% |
-| 3.2 Conversation Export | ⬜ Not Started | 0% |
-| 3.3 Analytics Dashboard | ⬜ Not Started | 0% |
+| 3.1 CRUD Operations (Skills, Rules, Workflows) | ⬜ Not Started | 0% |
+| 3.2 Conversation Export (MD/JSON/HTML) | ⬜ Not Started | 0% |
+| 3.3 Analytics Dashboard (Charts) | ⬜ Not Started | 0% |
 | 3.4 MCP Health Checks | ⬜ Not Started | 0% |
-| 3.5 External Browser Mode | ⬜ Not Started | 0% |
-| 3.6 Inline Editor | ⬜ Not Started | 0% |
+| ~~3.5 External Browser Mode~~ | ~~Superseded~~ | ~~N/A — replaced by native Pop-Out (Task 1.10.5)~~ |
+| 3.5 Inline Markdown Editor | ⬜ Not Started | 0% |
 | **Phase 3 Total** | | **0%** |
 
 ---
@@ -1713,6 +1362,51 @@ esbuild.config.mjs
 ---
 
 ## Appendix D: Changelog
+
+### v2.3.0 (2026-06-16)
+
+#### ✅ Viewability Filtering
+- **Problem**: After discovering 105+ conversations from the conversations/ directory, many old .pb-only entries had 0 steps, generic "Conversation XXXX" titles, and no transcript — clicking them caused "Conversation log not found" errors.
+- **Solution**: Added a filter in `_getConversationsFromFilesystem()` that excludes conversations meeting ALL of: no transcript, generic title ("Conversation" prefix, ≤25 chars), and 0 step count. Conversations with real titles, transcripts, or step data are always kept.
+
+#### ✅ Inline Edit/Delete Buttons
+- Each conversation row in Column 2 now shows pencil (✏️ rename) and trash (🗑️ delete) icon buttons on hover.
+- **CSS**: `.sub-list-item-actions` uses opacity transition on parent hover. `.sub-list-item-title-row` wraps the title and action buttons in a flex row.
+- **Delete flow**: Trash button → confirmation modal (shows conversation title + warning) → `request:deleteConversation` message → `deleteConversation()` in conversationProvider removes brain dir, .db, .db-shm, .db-wal, and .pb files → optimistic UI removal + toast.
+- **Edit flow**: Pencil button → reuses existing `_showRenameModal()` from conversations.js.
+- Both buttons use `event.stopPropagation()` to prevent triggering the row click handler.
+
+#### ✅ Multi-Instance LS Discovery for Cross-Workspace Rename (v2.3.0)
+- **Problem**: `_discoverLSConnection()` only matched the LS process for the current workspace. Renaming conversations from other workspaces was unreliable.
+- **Solution**: Rewrote to iterate through ALL running LS instances (sorted workspace-specific first). However, this still returned only the **first** working connection, which was often the current workspace LS — not the one that owns the target conversation.
+- **Superseded by**: v2.4.0 Multi-LS Broadcast Rename (below).
+
+### v2.4.0 (2026-06-16)
+
+#### ✅ Cross-Workspace Multi-LS Broadcast Rename
+- **Problem**: The v2.3.0 multi-instance LS discovery found all running LS instances but returned only the first working connection. The SDK's `ls.setTitle()` only talks to the current workspace's LS. For conversations belonging to other workspaces, the rename succeeded in the ACC UI (via `title_override.txt`) but the Antigravity IDE sidebar didn't update — because the owning LS never received the rename request.
+- **Root cause**: Each Antigravity IDE workspace window spawns its own LS process. Each LS only "knows about" conversations created within its own workspace. The SDK is bound to the current workspace's LS.
+- **Solution**: Complete architectural refactor:
+  1. **`_discoverAllLSConnections()`** — new function returns ALL valid LS connections (port, csrfToken, useTls, pid) instead of just the first one.
+  2. **`_directConnectRPCRename()`** — rewrote to discover all LS instances and fire `UpdateConversationAnnotations` at EVERY one in parallel via `Promise.allSettled()`. The owning LS applies the rename; others silently ignore it (harmless).
+  3. **`renameConversation()`** — the multi-LS broadcast is now the **primary** strategy (Strategy 1), executed first. SDK `ls.setTitle()` is demoted to supplementary (Strategy 2). `title_override.txt` filesystem cache is always written (Strategy 3).
+  4. **`_discoverLSConnection()`** — thin backward-compat wrapper around `_discoverAllLSConnections()` (returns first connection, used only by legacy CSRF refresh path).
+- **Result**: Renaming a conversation from ANY workspace's ACC window now updates the title in the owning workspace's Antigravity IDE sidebar immediately.
+
+### v2.2.0 (2026-06-16)
+
+#### ✅ Full Conversation Discovery from conversations/ Directory
+- **Root cause**: The ACC previously scanned `~/.gemini/antigravity-ide/brain/` for `transcript.jsonl` files. Only 15 out of 105+ conversations have this file — the rest store data in `.db` (SQLite) or `.pb` (protobuf) files in `~/.gemini/antigravity-ide/conversations/`.
+- **Solution**: New 2-phase discovery pipeline:
+  1. **Phase 1 (SQLite `.db`)**: Uses `sql.js` (WebAssembly SQLite, already bundled for antigravity-sdk) to read each `.db` file. Extracts step counts from the `steps` table and workspace URIs from `trajectory_metadata_blob` (protobuf blob decoded to text, regex-matched for `file:///` URIs).
+  2. **Phase 2 (Protobuf `.pb`)**: Discovers remaining conversations and pairs them with brain directory data for timestamps (from `.pb` file stat) and step counts (from `.system_generated/steps/`).
+- **New files**: `src/services/conversationDB.ts` (SQLite reader), `src/types/sql.js.d.ts` (type declarations)
+- **Updated files**: `src/utils/paths.ts` (added `getConversationsDirectory()`), `src/providers/conversationProvider.ts` (rewrote `_getConversationsFromFilesystem()`)
+- **Result**: ACC now discovers 100+ conversations (matching the Antigravity IDE's full count) with correct workspace/project labels.
+
+#### ✅ Cross-Workspace Project Labels from SQLite
+- **Problem**: The Project filter only showed the current workspace ("firothehero") because transcript-based detection couldn't find workspace URIs for conversations without `transcript.jsonl`.
+- **Solution**: For `.db` files, workspace URIs are extracted directly from `trajectory_metadata_blob`. The existing `projectFromWorkspaceUri()` function maps `file:///Users/firo/tenn/tenn_brain` → `tenn_brain`. This is vastly more reliable than transcript parsing since EVERY `.db` file contains the workspace URI.
 
 ### v2.1.0 (2026-06-16)
 

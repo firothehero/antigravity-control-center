@@ -1552,6 +1552,58 @@ input[type="text"]:focus, select:focus {
   margin-top: 2px;
 }
 
+/* Inline action buttons (Edit/Delete) on conversation rows */
+.sub-list-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.sub-list-item:hover .sub-list-item-actions {
+  opacity: 1;
+}
+
+.sub-list-item-action-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 3px 5px;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  line-height: 1;
+}
+
+.sub-list-item-action-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.sub-list-item-action-btn.delete:hover {
+  background: var(--color-error-bg);
+  color: var(--color-error);
+}
+
+/* Title row with inline actions */
+.sub-list-item-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.sub-list-item-title-row .sub-list-item-title {
+  flex: 1;
+  min-width: 0;
+}
+
 /* Column 3 - Details Panel */
 .detail-column {
   flex: 1;

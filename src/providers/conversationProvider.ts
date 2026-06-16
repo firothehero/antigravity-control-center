@@ -17,10 +17,11 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as vscode from 'vscode';
 import { Conversation, ConversationDetail, TranscriptStep } from '../models';
-import { getBrainDirectory } from '../utils/paths';
+import { getBrainDirectory, getConversationsDirectory } from '../utils/paths';
 import { getSubDirectories, safeReadFile, getFileStat, fileExists, safeReadDir } from '../utils/fileSystem';
 import { parseJsonl } from '../utils/jsonlParser';
 import { getSDK, isSDKAvailable } from '../services/sdkService';
+import { scanAllConversationDBs, listAllConversationIds } from '../services/conversationDB';
 
 
 // ---------------------------------------------------------------------------
@@ -286,68 +287,213 @@ async function _getConversationsFromSDK(): Promise<Conversation[]> {
 
 async function _getConversationsFromFilesystem(): Promise<Conversation[]> {
   const brainDir = getBrainDirectory();
-  const subdirs = await getSubDirectories(brainDir);
+  const conversationsDir = getConversationsDirectory();
   const conversations: Conversation[] = [];
+  const seenIds = new Set<string>();
 
-  for (const id of subdirs) {
-    const convPath = path.join(brainDir, id);
-    const transcriptPath = path.join(convPath, '.system_generated', 'logs', 'transcript.jsonl');
+  // ── Phase 1: Read .db files (SQLite) from conversations/ directory ─────
+  // These contain step counts and workspace URIs extracted from protobuf blobs
+  try {
+    const dbInfos = await scanAllConversationDBs(conversationsDir);
+    for (const dbInfo of dbInfos) {
+      seenIds.add(dbInfo.id);
+      const convPath = path.join(brainDir, dbInfo.id);
+      const transcriptPath = path.join(convPath, '.system_generated', 'logs', 'transcript.jsonl');
 
-    const hasTranscript = await fileExists(transcriptPath);
-    if (!hasTranscript) {
-      continue;
-    }
+      // Get timestamps from brain directory or conversation file
+      let lastModified = new Date().toISOString();
+      let createdAt = new Date().toISOString();
+      let title = '';
+      let project = projectFromWorkspaceUri(dbInfo.workspaceUri);
 
-    const stat = await getFileStat(transcriptPath);
-    const lastModified = stat?.modifiedAt.toISOString() || new Date().toISOString();
-    const createdAt = stat?.createdAt.toISOString() || new Date().toISOString();
-
-    const transcriptContent = await safeReadFile(transcriptPath) || '';
-    const steps = parseJsonl(transcriptContent);
-    const stepCount = steps.length;
-
-    // Extract title: check override first, then first USER_INPUT
-    let title = '';
-
-    // Check for user-set title override
-    const titleOverridePath = path.join(convPath, 'title_override.txt');
-    try {
-      const overrideContent = await fs.readFile(titleOverridePath, 'utf8');
-      if (overrideContent.trim()) {
-        title = overrideContent.trim();
-      }
-    } catch (_) { /* no override */ }
-
-    if (!title) {
-      const firstUserInput = steps.find(s => s.type === 'USER_INPUT');
-      if (firstUserInput && firstUserInput.content) {
-        title = firstUserInput.content.replace(/<[^>]*>/g, '').trim();
-        if (title.length > 80) {
-          title = title.substring(0, 80) + '...';
+      // Try transcript for timestamps and title
+      const hasTranscript = await fileExists(transcriptPath);
+      if (hasTranscript) {
+        const stat = await getFileStat(transcriptPath);
+        if (stat) {
+          lastModified = stat.modifiedAt.toISOString();
+          createdAt = stat.createdAt.toISOString();
         }
+
+        // Parse transcript for title and project detection
+        const transcriptContent = await safeReadFile(transcriptPath) || '';
+        const steps = parseJsonl(transcriptContent);
+
+        // Title from override or first user input
+        const titleOverridePath = path.join(convPath, 'title_override.txt');
+        try {
+          const overrideContent = await fs.readFile(titleOverridePath, 'utf8');
+          if (overrideContent.trim()) {
+            title = overrideContent.trim();
+          }
+        } catch (_) { /* no override */ }
+
+        if (!title) {
+          const firstUserInput = steps.find(s => s.type === 'USER_INPUT');
+          if (firstUserInput && firstUserInput.content) {
+            title = firstUserInput.content.replace(/<[^>]*>/g, '').trim();
+            if (title.length > 80) {
+              title = title.substring(0, 80) + '...';
+            }
+          }
+        }
+
+        // If workspace URI didn't give us a good project, try transcript detection
+        if (!project || project === 'unknown') {
+          project = detectProject(steps, dbInfo.id);
+        }
+      } else {
+        // No transcript — try to get timestamps from the .db file itself
+        try {
+          const dbPath = path.join(conversationsDir, `${dbInfo.id}.db`);
+          const dbStat = await getFileStat(dbPath);
+          if (dbStat) {
+            lastModified = dbStat.modifiedAt.toISOString();
+            createdAt = dbStat.createdAt.toISOString();
+          }
+        } catch (_) {}
+
+        // Try title override from brain dir
+        const titleOverridePath = path.join(convPath, 'title_override.txt');
+        try {
+          const overrideContent = await fs.readFile(titleOverridePath, 'utf8');
+          if (overrideContent.trim()) {
+            title = overrideContent.trim();
+          }
+        } catch (_) { /* no override */ }
       }
+
+      if (!title) {
+        title = `Conversation ${dbInfo.id.substring(0, 8)}`;
+      }
+
+      conversations.push({
+        id: dbInfo.id,
+        title,
+        createdAt,
+        lastModified,
+        stepCount: dbInfo.stepCount,
+        artifactPath: convPath,
+        hasTranscript: await fileExists(transcriptPath),
+        project: project || 'unknown',
+      });
     }
-
-    if (!title) {
-      title = `Conversation ${id.substring(0, 8)}`;
-    }
-
-    const project = detectProject(steps, id);
-
-    conversations.push({
-      id,
-      title,
-      createdAt,
-      lastModified,
-      stepCount,
-      artifactPath: convPath,
-      hasTranscript: true,
-      project
-    });
+  } catch (err: any) {
+    console.warn('[ACC] Failed to scan .db files:', err?.message);
   }
 
+  // ── Phase 2: Discover .pb files not already found as .db ───────────────
+  // These are older-format conversations. We can't read the protobuf directly
+  // but we can discover them and pair with brain directory data.
+  try {
+    const allIds = await listAllConversationIds(conversationsDir);
+    for (const id of allIds) {
+      if (seenIds.has(id)) continue;
+      seenIds.add(id);
+
+      const convPath = path.join(brainDir, id);
+      const transcriptPath = path.join(convPath, '.system_generated', 'logs', 'transcript.jsonl');
+
+      let lastModified = new Date().toISOString();
+      let createdAt = new Date().toISOString();
+      let title = '';
+      let stepCount = 0;
+      let project = '';
+
+      // Try transcript for data
+      const hasTranscript = await fileExists(transcriptPath);
+      if (hasTranscript) {
+        const stat = await getFileStat(transcriptPath);
+        if (stat) {
+          lastModified = stat.modifiedAt.toISOString();
+          createdAt = stat.createdAt.toISOString();
+        }
+        const transcriptContent = await safeReadFile(transcriptPath) || '';
+        const steps = parseJsonl(transcriptContent);
+        stepCount = steps.length;
+
+        const titleOverridePath = path.join(convPath, 'title_override.txt');
+        try {
+          const overrideContent = await fs.readFile(titleOverridePath, 'utf8');
+          if (overrideContent.trim()) title = overrideContent.trim();
+        } catch (_) {}
+
+        if (!title) {
+          const firstUserInput = steps.find(s => s.type === 'USER_INPUT');
+          if (firstUserInput?.content) {
+            title = firstUserInput.content.replace(/<[^>]*>/g, '').trim();
+            if (title.length > 80) title = title.substring(0, 80) + '...';
+          }
+        }
+
+        project = detectProject(steps, id);
+      } else {
+        // No transcript — get timestamps from .pb file
+        try {
+          const pbPath = path.join(conversationsDir, `${id}.pb`);
+          const pbStat = await getFileStat(pbPath);
+          if (pbStat) {
+            lastModified = pbStat.modifiedAt.toISOString();
+            createdAt = pbStat.createdAt.toISOString();
+          }
+        } catch (_) {}
+
+        // Count steps from brain dir if available
+        try {
+          const stepsDir = path.join(convPath, '.system_generated', 'steps');
+          const stepEntries = await safeReadDir(stepsDir);
+          stepCount = stepEntries.length;
+        } catch (_) {}
+
+        // Try title override
+        const titleOverridePath = path.join(convPath, 'title_override.txt');
+        try {
+          const overrideContent = await fs.readFile(titleOverridePath, 'utf8');
+          if (overrideContent.trim()) title = overrideContent.trim();
+        } catch (_) {}
+      }
+
+      if (!title) {
+        title = `Conversation ${id.substring(0, 8)}`;
+      }
+      if (!project) {
+        const wsFolder = vscode.workspace.workspaceFolders?.[0];
+        project = wsFolder?.name || 'unknown';
+      }
+
+      conversations.push({
+        id,
+        title,
+        createdAt,
+        lastModified,
+        stepCount,
+        artifactPath: convPath,
+        hasTranscript,
+        project,
+      });
+    }
+  } catch (err: any) {
+    console.warn('[ACC] Failed to scan .pb files:', err?.message);
+  }
+
+  // Filter out unviewable conversations:
+  // - No transcript AND generic "Conversation XXXX" title → can't display anything meaningful
+  // - These are old .pb-only entries with no readable data; clicking them causes errors
+  const viewable = conversations.filter(c => {
+    // Keep conversations that have a transcript
+    if (c.hasTranscript) return true;
+    // Keep conversations that have a real title (not the generic fallback)
+    if (!c.title.startsWith('Conversation ') || c.title.length > 25) return true;
+    // Keep conversations that have meaningful step data from the DB
+    if (c.stepCount > 0) return true;
+    // Filter out the rest — they're unviewable
+    return false;
+  });
+
+  console.log(`[ACC] Discovered ${conversations.length} conversations, ${viewable.length} viewable`);
+
   // Sort by lastModified descending (most recent first)
-  return conversations.sort((a, b) => {
+  return viewable.sort((a, b) => {
     return new Date(b.lastModified || 0).getTime() - new Date(a.lastModified || 0).getTime();
   });
 }
@@ -667,79 +813,47 @@ export async function focusConversation(id: string): Promise<boolean> {
 // ---------------------------------------------------------------------------
 
 /**
- * Rename a conversation using the SDK's native ConversationAnnotations.
+ * Rename a conversation using direct ConnectRPC broadcast to ALL LS instances.
  *
- * Strategy (cascading):
- * 1. ls.setTitle()          — direct LS ConnectRPC (visible in native AG UI)
- * 2. ls.updateAnnotations() — alternative LS RPC
- * 3. integration.titles     — renderer-side title proxy
- * 4. title_override.txt     — filesystem cache (always written as backup)
+ * Architecture insight: Each Antigravity IDE workspace window has its own LS.
+ * The SDK only connects to the LS of the workspace the ACC was opened from.
+ * If the conversation belongs to a different workspace, the SDK rename
+ * succeeds silently but doesn't actually change anything — only the
+ * owning LS can apply the rename.
+ *
+ * Strategy:
+ * 1. Direct ConnectRPC broadcast → sends rename to ALL running LS instances
+ *    (the owning LS will apply it; others ignore it — harmless)
+ * 2. SDK ls.setTitle() → supplementary (for the current workspace LS)
+ * 3. integration.titles → supplementary (Windows renderer-side proxy)
+ * 4. title_override.txt → filesystem cache (always written as backup)
  */
 export async function renameConversation(id: string, newTitle: string): Promise<void> {
   const trimmedTitle = newTitle.trim();
-  let sdkRenameSucceeded = false;
+  let rpcRenameSucceeded = false;
 
+  // Strategy 1 (Primary): Direct ConnectRPC broadcast to ALL LS instances
+  // This is the only strategy that works cross-workspace
+  console.log(`[ACC] Renaming "${id.substring(0, 8)}..." to "${trimmedTitle}" via multi-LS broadcast...`);
+  rpcRenameSucceeded = await _directConnectRPCRename(id, trimmedTitle);
+
+  // Strategy 2 (Supplementary): SDK-based rename for current workspace
+  // This may have already succeeded above via the broadcast, but calling it
+  // through the SDK path ensures the SDK's internal state stays consistent
   if (isSDKAvailable()) {
     const sdk = getSDK();
 
-    // Strategy 1 (Primary): ls.setTitle() → UpdateConversationAnnotations RPC
-    if (sdk.ls) {
-      console.log(`[ACC] LS bridge state: isReady=${sdk.ls.isReady}, port=${sdk.ls.port}, csrf=${sdk.ls.hasCsrfToken}`);
-
-      if (sdk.ls.isReady) {
-        try {
-          await sdk.ls.setTitle(id, trimmedTitle);
-          console.log(`[ACC] ✅ Renamed "${id.substring(0, 8)}..." to "${trimmedTitle}" via ls.setTitle()`);
-          sdkRenameSucceeded = true;
-        } catch (err: any) {
-          const errMsg = err?.message || '';
-          console.warn('[ACC] ls.setTitle() failed:', errMsg);
-
-          // If CSRF token is invalid, try to re-discover fresh credentials
-          if (errMsg.includes('403') || errMsg.includes('CSRF') || errMsg.includes('csrf')) {
-            console.log('[ACC] CSRF token invalid. Attempting manual LS discovery...');
-            const freshConn = await _discoverLSConnection();
-            if (freshConn) {
-              sdk.ls.setConnection(freshConn.port, freshConn.csrfToken, freshConn.useTls);
-              console.log(`[ACC] LS connection reset: port=${freshConn.port}, tls=${freshConn.useTls}`);
-              try {
-                await sdk.ls.setTitle(id, trimmedTitle);
-                console.log(`[ACC] ✅ Renamed via ls.setTitle() after CSRF refresh`);
-                sdkRenameSucceeded = true;
-              } catch (retryErr: any) {
-                console.warn('[ACC] ls.setTitle() retry failed:', retryErr?.message || retryErr);
-              }
-            }
-          }
-
-          // Strategy 1b: try updateAnnotations if setTitle failed
-          if (!sdkRenameSucceeded) {
-            try {
-              await sdk.ls.updateAnnotations(id, { title: trimmedTitle }, true);
-              console.log(`[ACC] ✅ Renamed via ls.updateAnnotations()`);
-              sdkRenameSucceeded = true;
-            } catch (err2: any) {
-              console.warn('[ACC] ls.updateAnnotations() also failed:', err2?.message || err2);
-            }
-          }
-        }
-      } else {
-        console.warn('[ACC] LS bridge not ready. Attempting manual discovery...');
-        const freshConn = await _discoverLSConnection();
-        if (freshConn) {
-          sdk.ls.setConnection(freshConn.port, freshConn.csrfToken, freshConn.useTls);
-          try {
-            await sdk.ls.setTitle(id, trimmedTitle);
-            console.log(`[ACC] ✅ Renamed via ls.setTitle() after manual connect`);
-            sdkRenameSucceeded = true;
-          } catch (manualErr: any) {
-            console.warn('[ACC] Manual connect rename failed:', manualErr?.message || manualErr);
-          }
-        }
+    if (sdk.ls?.isReady) {
+      try {
+        await sdk.ls.setTitle(id, trimmedTitle);
+        console.log(`[ACC] SDK ls.setTitle() also succeeded (current workspace LS)`);
+      } catch (err: any) {
+        // Expected for cross-workspace conversations — the SDK LS doesn't own them
+        console.log(`[ACC] SDK ls.setTitle() skipped/failed (expected for cross-workspace): ${err?.message || ''}`);
       }
     }
 
-    // Strategy 2: integration.titles (supplementary, Windows-only effective)
+    // Strategy 3: integration.titles (supplementary, Windows-only effective)
     if (sdk.integration?.titles) {
       try {
         sdk.integration.titles.rename(id, trimmedTitle);
@@ -747,31 +861,87 @@ export async function renameConversation(id: string, newTitle: string): Promise<
     }
   }
 
-  // Strategy 3: Always write filesystem override
+  // Strategy 4: Always write filesystem override
   const brainDir = getBrainDirectory();
   const overridePath = path.join(brainDir, id, 'title_override.txt');
   await fs.writeFile(overridePath, trimmedTitle, 'utf8');
 
-  if (sdkRenameSucceeded) {
-    console.log(`[ACC] Rename complete (SDK + filesystem)`);
+  if (rpcRenameSucceeded) {
+    console.log(`[ACC] ✅ Rename complete (multi-LS broadcast + filesystem)`);
   } else {
-    console.log(`[ACC] Renamed conversation ${id} via filesystem fallback only`);
+    console.log(`[ACC] Renamed conversation ${id} via filesystem fallback only (no LS instance accepted)`);
   }
 }
 
 /**
- * Manually discover the LS connection by parsing the Language Server process args.
- * This is a fallback when the SDK's auto-discovery gets the wrong CSRF token.
+ * Delete a conversation — removes data from brain/ and conversations/ directories.
+ * This is a destructive operation: removes the transcript, artifacts, and storage files.
+ */
+export async function deleteConversation(id: string): Promise<void> {
+  const brainDir = getBrainDirectory();
+  const conversationsDir = getConversationsDirectory();
+
+  // 1. Remove brain directory (transcript, artifacts, steps)
+  const brainPath = path.join(brainDir, id);
+  try {
+    await fs.rm(brainPath, { recursive: true, force: true });
+    console.log(`[ACC] Deleted brain data for ${id}`);
+  } catch (err: any) {
+    console.warn(`[ACC] Failed to delete brain dir for ${id}:`, err?.message);
+  }
+
+  // 2. Remove .db file
+  const dbPath = path.join(conversationsDir, `${id}.db`);
+  try {
+    await fs.unlink(dbPath);
+    console.log(`[ACC] Deleted .db file for ${id}`);
+  } catch (_) { /* may not exist */ }
+
+  // 3. Remove .db-shm and .db-wal (SQLite WAL files)
+  try { await fs.unlink(`${dbPath}-shm`); } catch (_) {}
+  try { await fs.unlink(`${dbPath}-wal`); } catch (_) {}
+
+  // 4. Remove .pb file
+  const pbPath = path.join(conversationsDir, `${id}.pb`);
+  try {
+    await fs.unlink(pbPath);
+    console.log(`[ACC] Deleted .pb file for ${id}`);
+  } catch (_) { /* may not exist */ }
+
+  console.log(`[ACC] ✅ Conversation ${id} fully deleted`);
+}
+
+/**
+ * Discover ALL running LS instances and their ConnectRPC endpoints.
+ *
+ * Each Antigravity IDE workspace window spawns its own Language Server process.
+ * Each LS only "knows about" conversations created within its own workspace.
+ * To rename a conversation from a different workspace, we need to find the
+ * LS that owns it — so we discover ALL running LS instances.
  *
  * Key insight: The LS has multiple ports:
  *   - extension_server_port → IPC only, does NOT serve ConnectRPC endpoints (returns 404)
  *   - ConnectRPC ports      → dynamically assigned, found via lsof, serve UpdateConversationAnnotations
  *
- * TWO CSRF tokens exist:
+ * TWO CSRF tokens exist per LS instance:
  *   --csrf_token              → for ConnectRPC endpoints
  *   --extension_server_csrf_token → for extension_server_port only
  */
-async function _discoverLSConnection(): Promise<{port: number; csrfToken: string; useTls: boolean} | null> {
+
+interface LSConnection {
+  port: number;
+  csrfToken: string;
+  useTls: boolean;
+  pid: number;
+}
+
+/**
+ * Discover ALL running LS ConnectRPC connections.
+ * Returns an array of all valid connections (one per LS instance),
+ * sorted with the current-workspace LS first.
+ */
+async function _discoverAllLSConnections(): Promise<LSConnection[]> {
+  const connections: LSConnection[] = [];
   try {
     const { execSync } = require('child_process');
 
@@ -783,96 +953,195 @@ async function _discoverLSConnection(): Promise<{port: number; csrfToken: string
 
     if (!psOutput.trim()) {
       console.warn('[ACC] No LS process found');
-      return null;
+      return [];
     }
 
-    // Multiple LS instances may be running (one per workspace).
-    // Match workspace_id format: file_Users_firo_tenn_firothehero
     const lines = psOutput.trim().split('\n');
     const wsFolder = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath || '';
     const wsKey = wsFolder.replace(/\//g, '_');
 
-    let bestLine = lines[0];
-    for (const line of lines) {
-      if (wsKey && line.includes(wsKey)) {
-        bestLine = line;
-        break;
-      }
-      if (line.includes('--enable_lsp')) {
-        bestLine = line;
+    // Sort: workspace-specific match first, then others
+    const sortedLines = [...lines].sort((a, b) => {
+      const aMatch = wsKey && a.includes(wsKey) ? 0 : 1;
+      const bMatch = wsKey && b.includes(wsKey) ? 0 : 1;
+      return aMatch - bMatch;
+    });
+
+    const http = require('http');
+    const https = require('https');
+
+    // Try each LS instance
+    for (const line of sortedLines) {
+      const pidMatch = line.match(/\S+\s+(\d+)/);
+      const csrfMatch = line.match(/--csrf_token\s+([^\s]+)/);
+      const extPortMatch = line.match(/--extension_server_port\s+(\d+)/);
+
+      const pid = pidMatch ? parseInt(pidMatch[1], 10) : 0;
+      const connectCsrf = csrfMatch?.[1] || '';
+      const extPort = extPortMatch ? parseInt(extPortMatch[1], 10) : 0;
+
+      if (!pid || !connectCsrf) continue;
+
+      console.log(`[ACC] Discovering LS: PID=${pid}, csrf=${connectCsrf.substring(0, 8)}..., extPort=${extPort}`);
+
+      // Find ConnectRPC port via lsof (NOT the extension_server_port)
+      try {
+        const lsofOutput = execSync(
+          `lsof -anP -iTCP -sTCP:LISTEN -p ${pid} 2>/dev/null`,
+          { encoding: 'utf8', timeout: 3000 }
+        );
+        const lsofLines = lsofOutput.trim().split('\n').filter((l: string) => l.includes('LISTEN'));
+        const ports: number[] = [];
+        for (const ll of lsofLines) {
+          const pm = ll.match(/:(\d+)\s/);
+          if (pm) {
+            const p = parseInt(pm[1], 10);
+            if (p !== extPort) {
+              ports.push(p);
+            }
+          }
+        }
+
+        console.log(`[ACC] ConnectRPC candidate ports for PID ${pid} (excl ext ${extPort}): [${ports.join(', ')}]`);
+
+        if (ports.length > 0) {
+          // Check HTTP first, then HTTPS
+          let found = false;
+          for (const port of ports) {
+            const result = await _probePort(http, port, connectCsrf);
+            if (result === 200) {
+              console.log(`[ACC] ✅ Port ${port} is ConnectRPC (HTTP) from PID ${pid}`);
+              connections.push({ port, csrfToken: connectCsrf, useTls: false, pid });
+              found = true;
+              break; // One port per LS instance is sufficient
+            }
+          }
+          if (!found) {
+            for (const port of ports) {
+              const result = await _probePort(https, port, connectCsrf, true);
+              if (result === 200) {
+                console.log(`[ACC] ✅ Port ${port} is ConnectRPC (HTTPS) from PID ${pid}`);
+                connections.push({ port, csrfToken: connectCsrf, useTls: true, pid });
+                break;
+              }
+            }
+          }
+        }
+      } catch (lsofErr: any) {
+        console.warn(`[ACC] lsof failed for PID ${pid}:`, lsofErr?.message);
       }
     }
 
-    // Extract PID, tokens, and ports
-    const pidMatch = bestLine.match(/\S+\s+(\d+)/);
-    const csrfMatch = bestLine.match(/--csrf_token\s+([^\s]+)/);
-    const extPortMatch = bestLine.match(/--extension_server_port\s+(\d+)/);
-
-    const pid = pidMatch ? parseInt(pidMatch[1], 10) : 0;
-    const connectCsrf = csrfMatch?.[1] || '';
-    const extPort = extPortMatch ? parseInt(extPortMatch[1], 10) : 0;
-
-    console.log(`[ACC] Manual LS: PID=${pid}, csrf=${connectCsrf ? connectCsrf.substring(0, 8) + '...' : 'missing'}, extPort=${extPort}`);
-
-    if (!pid || !connectCsrf) {
-      console.warn('[ACC] Missing PID or CSRF token');
-      return null;
-    }
-
-    // PRIMARY: Find ConnectRPC port via lsof (NOT the extension_server_port)
-    // The LS listens on multiple ports: LSP port (400), ConnectRPC HTTP (200), ConnectRPC HTTPS
-    try {
-      const lsofOutput = execSync(
-        `lsof -anP -iTCP -sTCP:LISTEN -p ${pid} 2>/dev/null`,
-        { encoding: 'utf8', timeout: 3000 }
-      );
-      const lsofLines = lsofOutput.trim().split('\n').filter((l: string) => l.includes('LISTEN'));
-      const ports: number[] = [];
-      for (const ll of lsofLines) {
-        const pm = ll.match(/:(\d+)\s/);
-        if (pm) {
-          const p = parseInt(pm[1], 10);
-          if (p !== extPort) {
-            ports.push(p);
-          }
-        }
-      }
-
-      console.log(`[ACC] ConnectRPC candidate ports (excl ext ${extPort}): [${ports.join(', ')}]`);
-
-      if (ports.length > 0) {
-        // Probe each port to find the ConnectRPC one
-        // Port types: LSP (returns 400), ConnectRPC HTTP (returns 200), ConnectRPC HTTPS (needs TLS)
-        const http = require('http');
-        const https = require('https');
-
-        for (const port of ports) {
-          const result = await _probePort(http, port, connectCsrf);
-          if (result === 200) {
-            console.log(`[ACC] ✅ Port ${port} is ConnectRPC (HTTP)`);
-            return { port, csrfToken: connectCsrf, useTls: false };
-          }
-        }
-        // Retry with HTTPS (self-signed cert)
-        for (const port of ports) {
-          const result = await _probePort(https, port, connectCsrf, true);
-          if (result === 200) {
-            console.log(`[ACC] ✅ Port ${port} is ConnectRPC (HTTPS)`);
-            return { port, csrfToken: connectCsrf, useTls: true };
-          }
-        }
-        console.warn(`[ACC] No port responded 200 to ConnectRPC probe`);
-      }
-    } catch (lsofErr: any) {
-      console.warn('[ACC] lsof failed:', lsofErr?.message);
-    }
-
-    console.warn('[ACC] No ConnectRPC port found');
-    return null;
+    console.log(`[ACC] Discovered ${connections.length} LS ConnectRPC endpoint(s)`);
+    return connections;
   } catch (err: any) {
-    console.warn('[ACC] Manual LS discovery failed:', err?.message || err);
-    return null;
+    console.warn('[ACC] LS discovery failed:', err?.message || err);
+    return connections;
   }
+}
+
+/**
+ * Backward-compat wrapper: returns the first (best) LS connection.
+ * Used by the SDK CSRF-refresh path.
+ */
+async function _discoverLSConnection(): Promise<{port: number; csrfToken: string; useTls: boolean} | null> {
+  const all = await _discoverAllLSConnections();
+  return all.length > 0 ? all[0] : null;
+}
+
+/**
+ * Direct raw HTTP ConnectRPC rename — bypasses SDK entirely.
+ * Discovers ALL LS instances and sends the rename to EVERY one.
+ *
+ * Why all? Each LS only knows about conversations from its own workspace.
+ * We don't know which LS owns this conversation, so we send the rename
+ * request to all of them. The owning LS will apply it; others will
+ * silently ignore or return an error (harmless).
+ */
+async function _directConnectRPCRename(conversationId: string, title: string): Promise<boolean> {
+  const allConnections = await _discoverAllLSConnections();
+  if (allConnections.length === 0) {
+    console.warn('[ACC] No LS connections for direct rename');
+    return false;
+  }
+
+  console.log(`[ACC] Direct rename: sending to ${allConnections.length} LS instance(s)...`);
+
+  // ConnectRPC payload for UpdateConversationAnnotations
+  const payload = JSON.stringify({
+    conversation_id: conversationId,
+    annotations: { title },
+    merge: true,
+  });
+
+  // Fire rename at ALL LS instances in parallel
+  const results = await Promise.allSettled(
+    allConnections.map(conn => _sendRenameToLS(conn, conversationId, payload))
+  );
+
+  // Check if any succeeded
+  let anySucceeded = false;
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    const conn = allConnections[i];
+    if (result.status === 'fulfilled' && result.value) {
+      console.log(`[ACC] ✅ Direct rename succeeded on LS PID ${conn.pid} (port ${conn.port})`);
+      anySucceeded = true;
+    } else {
+      const reason = result.status === 'rejected' ? result.reason?.message : 'returned false';
+      console.log(`[ACC] LS PID ${conn.pid} (port ${conn.port}): rename not applied (${reason})`);
+    }
+  }
+
+  return anySucceeded;
+}
+
+/**
+ * Send a single rename request to one LS instance.
+ */
+function _sendRenameToLS(conn: LSConnection, conversationId: string, payload: string): Promise<boolean> {
+  const httpModule = conn.useTls ? require('https') : require('http');
+  const protocol = conn.useTls ? 'https' : 'http';
+
+  return new Promise((resolve) => {
+    try {
+      const req = httpModule.request(
+        `${protocol}://127.0.0.1:${conn.port}/exa.language_server_pb.LanguageServerService/UpdateConversationAnnotations`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+            'x-codeium-csrf-token': conn.csrfToken,
+          },
+          rejectUnauthorized: false,
+          timeout: 5000,
+        },
+        (res: any) => {
+          let body = '';
+          res.on('data', (chunk: string) => { body += chunk; });
+          res.on('end', () => {
+            if (res.statusCode === 200) {
+              resolve(true);
+            } else {
+              console.log(`[ACC] LS port ${conn.port} rename returned ${res.statusCode}: ${body.substring(0, 100)}`);
+              resolve(false);
+            }
+          });
+        }
+      );
+      req.on('error', (err: any) => {
+        console.log(`[ACC] LS port ${conn.port} rename error: ${err?.message}`);
+        resolve(false);
+      });
+      req.on('timeout', () => { req.destroy(); resolve(false); });
+      req.write(payload);
+      req.end();
+    } catch (err: any) {
+      console.log(`[ACC] LS port ${conn.port} rename exception: ${err?.message}`);
+      resolve(false);
+    }
+  });
 }
 
 /**
